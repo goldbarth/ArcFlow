@@ -260,35 +260,30 @@
 
     private async Task SelectVideo(VideoItem video, bool autoplay)
     {
+        Console.WriteLine($"SelectVideo: {video.YouTubeId}");
         _currentVideo = video;
-        _isPlaying = autoplay;
+        
+        _playerState = new PlayerState.Loading(video.YouTubeId, autoplay);
 
-        if (_playerInitialized)
-        {
-            await JS.InvokeVoidAsync("YouTubePlayerInterop.loadVideo", video.YouTubeId, autoplay);
-        }
-        else
-        {
-            _playerInitialized = false; // Will trigger createPlayer in OnAfterRenderAsync
-        }
+        await JS.InvokeVoidAsync(
+            "YouTubePlayerInterop.loadVideo",
+            video.YouTubeId,
+            autoplay);
 
         StateHasChanged();
     }
 
     private async Task TogglePlayPause()
     {
-        _isPlaying = !_isPlaying;
-
-        if (_isPlaying)
+        switch (_playerState)
         {
-            await JS.InvokeVoidAsync("YouTubePlayerInterop.play");
+            case PlayerState.Playing:
+                await JS.InvokeVoidAsync("YouTubePlayerInterop.pause");
+                break;
+            case PlayerState.Paused:
+                await JS.InvokeVoidAsync("YouTubePlayerInterop.play");
+                break;
         }
-        else
-        {
-            await JS.InvokeVoidAsync("YouTubePlayerInterop.pause");
-        }
-
-        StateHasChanged();
     }
 
     private async Task PlayNext()
