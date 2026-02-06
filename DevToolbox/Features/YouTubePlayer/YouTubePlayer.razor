@@ -304,13 +304,46 @@
         {
             await PlayNext();
         }
-        else
-        {
-            _isPlaying = false;
-            await InvokeAsync(StateHasChanged);
-        }
     }
+    
+    [JSInvokable("OnPlayerStateChanged")]
+    public async Task OnPlayerStateChanged(int ytState, string? videoId)
+    {
+        Console.WriteLine($"OnPlayerStateChanged: yt={ytState}, vid={videoId}, state={_playerState}");
+        var expectedId = _playerState switch
+        {
+            PlayerState.Loading loading => loading.VideoId,
+            PlayerState.Buffering buffering => buffering.VideoId,
+            PlayerState.Playing playing => playing.VideoId,
+            PlayerState.Paused paused => paused.VideoId,
+            _ => null
+        };
+        
+        var currentId = videoId ?? expectedId;
+        
+        if (_playerState is not PlayerState.Loading)
+        {
+            if (currentId is null || expectedId is null || currentId != expectedId)
+                return;
+        }
+        
+        if (_playerState is PlayerState.Loading && currentId is null)
+            return;
 
+        _playerState = ytState switch
+        {
+            3 => new PlayerState.Buffering(currentId!), // BUFFERING
+            1 => new PlayerState.Playing(currentId!),   // PLAYING
+            2 => new PlayerState.Paused(currentId!),    // PAUSED
+            5 => new PlayerState.Paused(currentId!),    // CUED
+            0 => new PlayerState.Paused(currentId!),    // ENDED
+            -1 => _playerState,                         // UNSTARTED - ignore
+            _ => _playerState
+        };
+        
+        await InvokeAsync(StateHasChanged);
+    }
+    
     private void OpenDrawer()
     {
         _createPlaylistDrawerOpen = true;
