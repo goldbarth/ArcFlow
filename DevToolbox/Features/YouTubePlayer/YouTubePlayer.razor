@@ -169,11 +169,20 @@
     protected override async Task OnInitializedAsync()
     {
         _playlists = await PlaylistService.GetAllPlaylistsAsync();
-
-        // goldbarth: Automatically select the first playlist, need to experiment to get a suitable solution
+        
         if (_playlists?.Any() == true)
         {
-            await SelectPlaylist(_playlists.First());
+            _selectedPlaylist = await PlaylistService.GetPlaylistByIdAsync(_playlists.First().Id);
+        
+            _videoItems = _selectedPlaylist?.VideoItems
+                .OrderBy(v => v.Position)
+                .ToList() ?? [];
+            
+            if (_videoItems.Any())
+            {
+                _pendingVideoToLoad = _videoItems.First();
+                _pendingAutoplay = false;
+            }
         }
     }
 
@@ -183,17 +192,17 @@
         {
             _dotNetRef = DotNetObjectReference.Create(this);
             await JS.InvokeVoidAsync("YouTubePlayerInterop.init", _dotNetRef);
+            
+            if (_pendingVideoToLoad != null)
+            {
+                await SelectVideo(_pendingVideoToLoad, _pendingAutoplay);
+                _pendingVideoToLoad = null;
+            }
         }
 
         if (_videoItems.Any() && !_sortableInitialized)
         {
             await InitializeSortable();
-        }
-
-        if (_currentVideo != null && !_playerInitialized)
-        {
-            await JS.InvokeVoidAsync("YouTubePlayerInterop.createPlayer", _currentVideo.YouTubeId, _isPlaying);
-            _playerInitialized = true;
         }
     }
 
