@@ -98,7 +98,7 @@
                     <div @key="video.Id"
                          class="video-list-item @(video.YouTubeId == _currentVideo?.YouTubeId ? "selected" : "")"
                          data-video-id="@video.Id"
-                         @onclick="@(async () => await SelectVideo(video, true))">
+>
                         <div class="drag-handle">
                             <MudIcon Icon="@Icons.Material.Filled.DragIndicator" Size="Size.Small" />
                         </div>
@@ -153,7 +153,7 @@
     private VideoItem? _currentVideo;
     private bool _createPlaylistDrawerOpen;
     private bool _addVideoDrawerOpen;
-    private bool _isPlaying;
+    private bool _isPlaying => _playerState is PlayerState.Playing;
     
     private PlayerState _playerState = new PlayerState.Empty();
     
@@ -215,6 +215,16 @@
     }
 
     [JSInvokable]
+    public async Task OnVideoClicked(string videoId)
+    {
+        var video = _videoItems.FirstOrDefault(v => v.Id.ToString() == videoId);
+        if (video != null)
+        {
+            await SelectVideo(video, true);
+        }
+    }
+
+    [JSInvokable]
     public async Task OnSortChanged(int oldIndex, int newIndex)
     {
         if (_selectedPlaylist == null || oldIndex == newIndex)
@@ -231,7 +241,7 @@
         
         await PlaylistService.UpdateVideoPositionsAsync(_selectedPlaylist.Id, _videoItems);
 
-        // No StateHasChanged() - SortableJS has already updated the DOM
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task SelectPlaylist(Playlist playlist)
@@ -252,7 +262,6 @@
         else
         {
             _currentVideo = null;
-            _isPlaying = false;
         }
 
         StateHasChanged();
