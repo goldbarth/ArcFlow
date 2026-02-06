@@ -21,11 +21,11 @@ DevToolbox ist ein **Portfolio-Showcase-Projekt**, das meine Fähigkeiten in der
 <!-- START_RECENTLY_WORKED_ON -->
 | Feature | Commit Date | Commit |
 |---------|-------------|--------|
-| feat: refactor YouTube player feature to strict store-driven state management | 2026-02-06 20:19:38 CET | [f445041](https://github.com/goldbarth/DevToolbox/commit/f445041a1c8960db1551e43c10391506f43991f2) |
+| feat: refactor YouTube player feature to strict store-driven state management | 2026-02-06 20:19:38 CET | [4da5354](https://github.com/goldbarth/DevToolbox/commit/4da53541ba51775c0d04a728bc6d1bab8679dd6c) |
+| feat: add OnPlayerStateChanged method for handling YouTube player state changes | 2026-02-06 15:02:21 CET | [5511eee](https://github.com/goldbarth/DevToolbox/commit/5511eee15c2db1e7974ff611da61e2050caff35b) |
+| feat: add PlayerState model for YouTubePlayer feature | 2026-02-06 15:01:53 CET | [31af266](https://github.com/goldbarth/DevToolbox/commit/31af2668cd3ee8f2aa35fdc92293986700fe9fae) |
 | feat: implement YouTube Player with playlist and video management, add interop for sortable lists and playback controls | 2026-02-04 17:52:33 CET | [d31b79d](https://github.com/goldbarth/DevToolbox/commit/d31b79df00b28e1a6e04b567ce96384eeba90a09) |
 | feat: add drawers for creating playlists and adding videos with responsive UI structures | 2026-02-04 17:52:14 CET | [5767720](https://github.com/goldbarth/DevToolbox/commit/5767720f8ee5db6889d5c726484a45b21523427a) |
-| feat: integrate MudBlazor, update layout with collapsible sidebar, add database connection, and enhance YouTube Player features | 2026-02-04 17:51:56 CET | [4ba20ed](https://github.com/goldbarth/DevToolbox/commit/4ba20ed2b165271208f0f22e5d3d400a6fd014e3) |
-| feat: add JavaScript interop for sortable lists and YouTube player integration | 2026-02-04 17:51:20 CET | [3c95427](https://github.com/goldbarth/DevToolbox/commit/3c954275039badc001a1bedea830d2deeac4f137) |
 <!-- END_RECENTLY_WORKED_ON -->
 
 ---
