@@ -1,0 +1,43 @@
+<div class="sidebar-container @(_isCollapsed ? "collapsed" : "expanded")">
+    <div class="top-row navbar navbar-dark">
+        <button class="toggle-btn" @onclick="ToggleSidebar" title="@(_isCollapsed ? "Menu ausklappen" : "Menu einklappen")">
+            <span class="bi bi-hamburger-menu" aria-hidden="true"></span>
+        </button>
+        <a class="navbar-brand" href="">Arc Flow</a>
+    </div>
+
+    <input type="checkbox" title="Navigation menu" class="navbar-toggler"/>
+
+    <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+        <nav class="nav flex-column">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="" Match="NavLinkMatch.All" title="Home">
+                    <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span>
+                    @if (!_isCollapsed)
+                    {
+                        <span class="nav-text">Home</span>
+                    }
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="youtube" title="YouTube Player">
+                    <span class="bi bi-youtube-nav-menu" aria-hidden="true"></span>
+                    @if (!_isCollapsed)
+                    {
+                        <span class="nav-text">Player</span>
+                    }
+                </NavLink>
+            </div>
+        </nav>
+    </div>
+</div>
+
+@code {
+    private bool _isCollapsed;
+
+    private void ToggleSidebar()
+    {
+        _isCollapsed = !_isCollapsed;
+    }
+}

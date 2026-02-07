@@ -1,0 +1,330 @@
+@page "/youtube"
+@inject IPlaylistService PlaylistService
+@inject IJSRuntime JS
+@using ArcFlow.Features.YouTubePlayer.State
+@using ArcFlow.Features.YouTubePlayer.Store
+@implements IAsyncDisposable
+
+<CreatePlaylistDrawer @bind-Open="_createPlaylistDrawerOpen"
+                      OnSubmit="OnCreatePlaylistSubmit" />
+
+<AddVideoDrawer @bind-Open="_addVideoDrawerOpen"
+                SelectedPlaylistId="SelectedPlaylistId"
+                OnSubmit="OnAddVideoSubmit" />
+
+
+<h3>YouTube Player</h3>
+
+<div class="youtube-player-container">
+    <div class="playlist-overview">
+        <h4>Playlists</h4>
+        @if (!Playlists.Any())
+        {
+            <p>No playlists available</p>
+            <MudButton StartIcon="@Icons.Material.Filled.Add"
+                       Size="Size.Small"
+                       Color="Color.Primary"
+                       OnClick="OpenDrawer">
+                New Playlist
+            </MudButton>
+        }
+        else
+        {
+            <MudList T="Playlist" Class="playlist-list" Style="padding: 0;">
+                @foreach (var playlist in Playlists)
+                {
+                    var currentPlaylist = playlist;
+                    var isSelected = currentPlaylist.Id == SelectedPlaylistId;
+                    <MudListItem Style="@GetPlaylistItemStyle(isSelected)"
+                                 OnClick="@(async () =>
+                        await _store.Dispatch(new YtAction.SelectPlaylist(currentPlaylist.Id)))">
+                        <div class="playlist-item">
+                            <strong>@currentPlaylist.Name</strong>
+                            <span class="video-count">(@currentPlaylist.VideoItems.Count Videos)</span>
+                        </div>
+                    </MudListItem>
+                }
+            </MudList>
+            <MudButton StartIcon="@Icons.Material.Filled.Add"
+                       Size="Size.Small"
+                       Color="Color.Primary"
+                       OnClick="OpenDrawer">
+                New Playlist
+            </MudButton>
+        }
+    </div>
+
+    <div class="video-player-section">
+        <div class="video-player">
+            <div id="youtube-player-container"></div>
+
+            @if (State.Player is PlayerState.Empty)
+            {
+                <div class="no-video">
+                    <p>Select a playlist and a video</p>
+                </div>
+            }
+        </div>
+        @if (CurrentVideo is not null)
+        {
+            <div class="player-controls">
+                <MudIconButton Icon="@Icons.Material.Filled.SkipPrevious"
+                               Size="Size.Large"
+                               Color="Color.Primary"
+                               OnClick="PlayPrevious"
+                               Disabled="!CanPlayPrevious"/>
+                <MudIconButton Icon="@(IsPlaying
+                                         ? Icons.Material.Filled.Pause
+                                         : Icons.Material.Filled.PlayArrow)"
+                               Size="Size.Large"
+                               Color="Color.Primary"
+                               OnClick="TogglePlayPause"/>
+                <MudIconButton Icon="@Icons.Material.Filled.SkipNext"
+                               Size="Size.Large"
+                               Color="Color.Primary"
+                               OnClick="PlayNext"
+                               Disabled="!CanPlayNext"/>
+            </div>
+        }
+    </div>
+
+    <div class="current-playlist">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h4>@(SelectedPlaylistName)</h4>
+        </div>
+        @if (Videos.Any())
+        {
+            <div id="video-sortable-list" class="video-list">
+                @foreach (var video in Videos)
+                {
+                    var isSelected = video.YouTubeId == CurrentVideo?.YouTubeId;
+                    <div @key="video.Id"
+                         class="video-list-item @(video.YouTubeId == CurrentVideo?.YouTubeId
+                                                    ? "selected"
+                                                    : "")"
+                         data-video-id="@video.Id"
+                    >
+                        <div class="drag-handle">
+                            <MudIcon Icon="@Icons.Material.Filled.DragIndicator" Size="Size.Small"/>
+                        </div>
+                        <div class="video-item">
+                            @if (!string.IsNullOrEmpty(video.ThumbnailUrl))
+                            {
+                                <img src="@video.ThumbnailUrl" alt="@video.Title"
+                                     class="thumbnail"/>
+                            }
+                            <div class="video-info">
+                                <div class="video-title-row">
+                                    @if (isSelected && IsPlaying)
+                                    {
+                                        <MudIcon Icon="@Icons.Material.Filled.PlayArrow"
+                                                 Size="Size.Small"
+                                                 Class="now-playing-icon"/>
+                                    }
+                                    <strong>@video.Title</strong>
+                                </div>
+                                @if (video.Duration.HasValue)
+                                {
+                                    <span class="duration">@video.Duration.Value.ToString(@"mm\:ss")</span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+            <MudButton StartIcon="@Icons.Material.Filled.Add"
+                       Size="Size.Small"
+                       Color="Color.Primary"
+                       OnClick="OpenAddVideoDrawer">
+                Add Video
+            </MudButton>
+        }
+        else if (SelectedPlaylistId != null)
+        {
+            <p>No videos in this playlist</p>
+            <MudButton StartIcon="@Icons.Material.Filled.Add"
+                       Size="Size.Small"
+                       Color="Color.Primary"
+                       OnClick="OpenAddVideoDrawer">
+                Add Video
+            </MudButton>
+        }
+    </div>
+</div>
+
+@code {
+    private YouTubePlayerStore _store = null!;
+    private DotNetObjectReference<YouTubePlayer>? _dotNetRef;
+    
+    private Guid? _lastPlaylistId;
+    private int _lastVideoCount;
+    
+    private bool _createPlaylistDrawerOpen;
+    private bool _addVideoDrawerOpen;
+    private bool _sortableInitialized;
+
+    private YouTubePlayerState State => _store.State;
+    
+    private IReadOnlyList<Playlist> Playlists =>
+        State.Playlists is PlaylistsState.Loaded l ? l.Items : [];
+
+    private Guid? SelectedPlaylistId => State.Queue.SelectedPlaylistId;
+    private IReadOnlyList<VideoItem> Videos => State.Queue.Videos;
+    private int? CurrentIndex => State.Queue.CurrentIndex;
+
+    private VideoItem? CurrentVideo =>
+        CurrentIndex is { } i and >= 0 && i < Videos.Count
+            ? Videos[i]
+            : null;
+    
+    private string SelectedPlaylistName =>
+        Playlists.FirstOrDefault(p => p.Id == SelectedPlaylistId)?.Name
+        ?? "No playlist selected";
+
+    private bool IsPlaying => State.Player is PlayerState.Playing;
+    private bool CanPlayNext => CurrentIndex is { } i && i < Videos.Count - 1;
+    private bool CanPlayPrevious => CurrentIndex is { } and > 0;
+
+    protected override Task OnInitializedAsync()
+    {
+        _store = new YouTubePlayerStore(PlaylistService, JS);
+        _store.StateChanged += _ => InvokeAsync(StateHasChanged);
+        return Task.CompletedTask;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _dotNetRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("YouTubePlayerInterop.init", _dotNetRef);
+
+            await _store.Dispatch(new YtAction.Initialize());
+        }
+
+        // Re-initialize Sortable when playlist changes or VideoCount changes
+        var pid = SelectedPlaylistId;
+        var count = Videos.Count;
+
+        if (pid != _lastPlaylistId || count != _lastVideoCount)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("SortableInterop.destroy", "video-sortable-list");
+            }
+            catch
+            {
+                // ignored
+            }
+
+            _sortableInitialized = false;
+            
+            _lastPlaylistId = pid;
+            _lastVideoCount = count;
+        }
+
+        if (Videos.Any() && !_sortableInitialized)
+            await InitializeSortable();
+    }
+
+    private async Task InitializeSortable()
+    {
+        if (_dotNetRef == null) return;
+        await JS.InvokeVoidAsync("SortableInterop.init", "video-sortable-list", _dotNetRef);
+        _sortableInitialized = true;
+    }
+
+    [JSInvokable]
+    public Task OnVideoClicked(string videoId)
+    {
+        var index = Videos.ToList()
+            .FindIndex(v => v.Id.ToString() == videoId);
+        return index < 0
+            ? Task.CompletedTask
+            : _store.Dispatch(new YtAction.SelectVideo(index, Autoplay: true));
+    }
+
+    [JSInvokable]
+    public Task OnSortChanged(int oldIndex, int newIndex)
+    {
+        return oldIndex == newIndex
+            ? Task.CompletedTask
+            : _store.Dispatch(new YtAction.SortChanged(oldIndex, newIndex));
+    }
+
+    private async Task TogglePlayPause()
+    {
+        switch (State.Player)
+        {
+            case PlayerState.Playing:
+                await JS.InvokeVoidAsync("YouTubePlayerInterop.pause");
+                break;
+            case PlayerState.Paused:
+                await JS.InvokeVoidAsync("YouTubePlayerInterop.play");
+                break;
+        }
+    }
+
+    private Task PlayNext() =>
+        CanPlayNext
+            ? _store.Dispatch(new YtAction.SelectVideo(CurrentIndex!.Value + 1, Autoplay: true))
+            : Task.CompletedTask;
+
+    private Task PlayPrevious() =>
+        CanPlayPrevious
+            ? _store.Dispatch(new YtAction.SelectVideo(CurrentIndex!.Value - 1, Autoplay: true))
+            : Task.CompletedTask;
+
+    [JSInvokable]
+    public async Task OnVideoEnded()
+    {
+        await _store.Dispatch(new YtAction.VideoEnded());
+    }
+
+    [JSInvokable("OnPlayerStateChanged")]
+    public async Task OnPlayerStateChanged(int ytState, string? videoId)
+    {
+        await _store.Dispatch(new YtAction.PlayerStateChanged(ytState, videoId!));
+    }
+    
+    private Task OnCreatePlaylistSubmit(CreatePlaylistDrawer.CreatePlaylistRequest r)
+        => _store.Dispatch(new YtAction.CreatePlaylist(r.Name, r.Description));
+
+    private Task OnAddVideoSubmit(AddVideoDrawer.AddVideoRequest request)
+        => _store.Dispatch(new YtAction.AddVideo(request.PlaylistId, request.Url, request.Title));
+    
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("SortableInterop.destroy", "video-sortable-list");
+            await JS.InvokeVoidAsync("YouTubePlayerInterop.destroy");
+        }
+        catch
+        {
+            // Ignore if JS is not available
+        }
+
+        _dotNetRef?.Dispose();
+    }
+
+    private string GetPlaylistItemStyle(bool isSelected)
+    {
+        const string baseStyle = "border-radius: 5px; margin-bottom: 8px; cursor: pointer;";
+
+        return isSelected
+            ? $"{baseStyle} background-color: #007bff; color: white;"
+            : baseStyle;
+    }
+
+    private void OpenDrawer()
+    {
+        _createPlaylistDrawerOpen = true;
+    }
+
+    private void OpenAddVideoDrawer()
+    {
+        _addVideoDrawerOpen = true;
+    }
+
+}
