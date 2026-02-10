@@ -35,11 +35,12 @@ public sealed class YouTubePlayerStore
     );
 #endif
 
-    public YouTubePlayerStore(IPlaylistService playlistService, IJSRuntime jsRuntime)
+    public YouTubePlayerStore(IPlaylistService playlistService, IJSRuntime jsRuntime, ILogger<YouTubePlayerStore> logger)
     {
         _playlistService = playlistService;
         _jsRuntime = jsRuntime;
-        
+        _logger = logger;
+
         State = new YouTubePlayerState();
         
         _actionQueue = Channel.CreateUnbounded<YtAction>();
@@ -339,6 +340,8 @@ public sealed class YouTubePlayerStore
     {
         var context = OperationContext.Create("LoadAndSelectInitialPlaylist");
         
+        _logger.LogInformation("Loading initial playlists - CorrelationId: {CorrelationId}", context.CorrelationId);
+        
         try
         {
             var playlists = await _playlistService.GetAllPlaylistsAsync();
@@ -415,22 +418,26 @@ public sealed class YouTubePlayerStore
         
         try
         {
+            // Check if player container exists before attempting to load
+            var playerExists = await _jsRuntime.InvokeAsync<bool>("eval", 
+                "document.getElementById('youtube-player-container') !== null");
+            
+            if (!playerExists)
+            {
+                _logger.LogWarning("YouTube player container not found, skipping video load");
+                return;
+            }
+            
             await _jsRuntime.InvokeVoidAsync(
                 "YouTubePlayerInterop.loadVideo", 
                 video.YouTubeId, 
                 selectVideo.Autoplay
-                );
+            );
         }
         catch (JSException ex)
         {
-            await Dispatch(new YtAction.OperationFailed(
-                new OperationError(
-                    ErrorCategory.External,
-                    $"Failed to load video '{video.Title}' in YouTube player",
-                    context,
-                    ex
-                )
-            ));
+            _logger.LogWarning(ex, "JS error while loading video, player may not be ready yet");
+            // Don't dispatch error on initial load - player might not be ready yet
         }
         catch (Exception ex)
         {
@@ -488,7 +495,7 @@ public sealed class YouTubePlayerStore
             await Dispatch(new YtAction.ShowNotification(
                 new Notification(
                     NotificationSeverity.Success,
-                    $"Playlist '{playlist.Name}' successfully created.",
+                    $"Playlist '{playlist.Name}' successfully  created.",
                     context.CorrelationId,
                     DateTime.UtcNow
                 )
@@ -629,17 +636,55 @@ public sealed class YouTubePlayerStore
 
     private string ExtractYouTubeId(string url)
     {
-        // goldbarth: Easy extraction - can be expanded
         try
         {
+            // Handle different YouTube URL formats
+            // https://www.youtube.com/watch?v=VIDEO_ID
+            // https://youtu.be/VIDEO_ID
+            // https://www.youtube.com/embed/VIDEO_ID
+            
+            if (string.IsNullOrWhiteSpace(url))
+                return string.Empty;
+            
             var uri = new Uri(url);
-            var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
-            return query["v"] ?? string.Empty;
+            
+            // Standard watch URL
+            if (uri.Host.Contains("youtube.com") && uri.AbsolutePath == "/watch")
+            {
+                var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+                var videoId = query["v"];
+                return IsValidYouTubeId(videoId) ? videoId! : string.Empty;
+            }
+            
+            // Short URL (youtu.be)
+            if (uri.Host == "youtu.be")
+            {
+                var videoId = uri.AbsolutePath.TrimStart('/');
+                return IsValidYouTubeId(videoId) ? videoId : string.Empty;
+            }
+            
+            // Embed URL
+            if (uri.Host.Contains("youtube.com") && uri.AbsolutePath.StartsWith("/embed/"))
+            {
+                var videoId = uri.AbsolutePath.Replace("/embed/", "");
+                return IsValidYouTubeId(videoId) ? videoId : string.Empty;
+            }
+            
+            return string.Empty;
         }
         catch
         {
             return string.Empty;
         }
+    }
+    
+    private bool IsValidYouTubeId(string? videoId)
+    {
+        // YouTube IDs are exactly 11 characters, alphanumeric plus - and _
+        if (string.IsNullOrWhiteSpace(videoId) || videoId.Length != 11)
+            return false;
+            
+        return videoId.All(c => char.IsLetterOrDigit(c) || c == '-' || c == '_');
     }
     
     #endregion

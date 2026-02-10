@@ -1,6 +1,7 @@
 using ArcFlow.Components;
 using ArcFlow.Data;
 using ArcFlow.Features.YouTubePlayer.Service;
+using ArcFlow.Features.YouTubePlayer.Store;
 using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
 
@@ -10,14 +11,6 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// Add logging
-builder.Services.AddLogging(logging =>
-{
-    logging.AddConsole();
-    logging.AddDebug();
-    logging.SetMinimumLevel(LogLevel.Information);
-});
-
 // Add database connection
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -25,6 +18,17 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 // Register Services
 builder.Services.AddScoped<IPlaylistService, PlaylistService>();
 builder.Services.AddMudServices();
+
+// Add store
+builder.Services.AddScoped<YouTubePlayerStore>();
+
+// Add logging
+builder.Services.AddLogging(logging =>
+{
+    logging.AddConsole();
+    logging.AddDebug();
+    logging.SetMinimumLevel(LogLevel.Information);
+});
 
 var app = builder.Build();
 

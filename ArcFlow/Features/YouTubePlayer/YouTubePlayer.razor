@@ -1,6 +1,6 @@
 @page "/youtube"
-@inject IPlaylistService PlaylistService
 @inject IJSRuntime JS
+@inject YouTubePlayerStore Store
 @using ArcFlow.Features.YouTubePlayer.State
 @using ArcFlow.Features.YouTubePlayer.Store
 @implements IAsyncDisposable
@@ -13,7 +13,7 @@
                 OnSubmit="OnAddVideoSubmit" />
 
 <NotificationPanel Notifications="@State.Notifications"
-                   OnDismiss="@(async (correlationId) => await _store.Dispatch(new YtAction.DismissNotification(correlationId)))" />
+                   OnDismiss="@(async (correlationId) => await Store.Dispatch(new YtAction.DismissNotification(correlationId)))" />
 
 
 <h3>YouTube Player</h3>
@@ -40,7 +40,7 @@
                     var isSelected = currentPlaylist.Id == SelectedPlaylistId;
                     <MudListItem Style="@GetPlaylistItemStyle(isSelected)"
                                  OnClick="@(async () =>
-                        await _store.Dispatch(new YtAction.SelectPlaylist(currentPlaylist.Id)))">
+                        await Store.Dispatch(new YtAction.SelectPlaylist(currentPlaylist.Id)))">
                         <div class="playlist-item">
                             <strong>@currentPlaylist.Name</strong>
                             <span class="video-count">(@currentPlaylist.VideoItems.Count Videos)</span>
@@ -156,7 +156,6 @@
 </div>
 
 @code {
-    private YouTubePlayerStore _store = null!;
     private DotNetObjectReference<YouTubePlayer>? _dotNetRef;
     
     private Guid? _lastPlaylistId;
@@ -166,7 +165,7 @@
     private bool _addVideoDrawerOpen;
     private bool _sortableInitialized;
 
-    private YouTubePlayerState State => _store.State;
+    private YouTubePlayerState State => Store?.State ?? new YouTubePlayerState();
     
     private IReadOnlyList<Playlist> Playlists =>
         State.Playlists is PlaylistsState.Loaded l ? l.Items : [];
@@ -190,9 +189,16 @@
 
     protected override Task OnInitializedAsync()
     {
-        _store = new YouTubePlayerStore(PlaylistService, JS);
-        _store.StateChanged += _ => InvokeAsync(StateHasChanged);
+        if (Store != null)
+        {
+            Store.StateChanged += OnStoreStateChanged;
+        }
         return Task.CompletedTask;
+    }
+    
+    private void OnStoreStateChanged(YouTubePlayerState newState)
+    {
+        _ = InvokeAsync(StateHasChanged);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -200,9 +206,19 @@
         if (firstRender)
         {
             _dotNetRef = DotNetObjectReference.Create(this);
-            await JS.InvokeVoidAsync("YouTubePlayerInterop.init", _dotNetRef);
+            try
+            {
+                await JS.InvokeVoidAsync("YouTubePlayerInterop.init", _dotNetRef);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to initialize YouTube Player: {ex.Message}");
+            }
 
-            await _store.Dispatch(new YtAction.Initialize());
+            if (Store != null)
+            {
+                await Store.Dispatch(new YtAction.Initialize());
+            }
         }
 
         // Re-initialize Sortable when playlist changes or VideoCount changes
@@ -237,24 +253,6 @@
         _sortableInitialized = true;
     }
 
-    [JSInvokable]
-    public Task OnVideoClicked(string videoId)
-    {
-        var index = Videos.ToList()
-            .FindIndex(v => v.Id.ToString() == videoId);
-        return index < 0
-            ? Task.CompletedTask
-            : _store.Dispatch(new YtAction.SelectVideo(index, Autoplay: true));
-    }
-
-    [JSInvokable]
-    public Task OnSortChanged(int oldIndex, int newIndex)
-    {
-        return oldIndex == newIndex
-            ? Task.CompletedTask
-            : _store.Dispatch(new YtAction.SortChanged(oldIndex, newIndex));
-    }
-
     private async Task TogglePlayPause()
     {
         switch (State.Player)
@@ -268,34 +266,71 @@
         }
     }
 
-    private Task PlayNext() =>
-        CanPlayNext
-            ? _store.Dispatch(new YtAction.SelectVideo(CurrentIndex!.Value + 1, Autoplay: true))
+    private Task PlayNext()
+    {
+        if (Store == null) return Task.CompletedTask;
+        return CanPlayNext
+            ? Store.Dispatch(new YtAction.SelectVideo(CurrentIndex!.Value + 1, Autoplay: true))
             : Task.CompletedTask;
+    }
 
-    private Task PlayPrevious() =>
-        CanPlayPrevious
-            ? _store.Dispatch(new YtAction.SelectVideo(CurrentIndex!.Value - 1, Autoplay: true))
+    private Task PlayPrevious()
+    {
+        if (Store == null) return Task.CompletedTask;
+        return CanPlayPrevious
+            ? Store.Dispatch(new YtAction.SelectVideo(CurrentIndex!.Value - 1, Autoplay: true))
             : Task.CompletedTask;
+    }
+    
+    [JSInvokable]
+    public Task OnVideoClicked(string videoId)
+    {
+        if (Store == null) return Task.CompletedTask;
+        
+        var index = Videos.ToList()
+            .FindIndex(v => v.Id.ToString() == videoId);
+        return index < 0
+            ? Task.CompletedTask
+            : Store.Dispatch(new YtAction.SelectVideo(index, Autoplay: true));
+    }
+
+    [JSInvokable]
+    public Task OnSortChanged(int oldIndex, int newIndex)
+    {
+        if (Store == null) return Task.CompletedTask;
+        return oldIndex == newIndex
+            ? Task.CompletedTask
+            : Store.Dispatch(new YtAction.SortChanged(oldIndex, newIndex));
+    }
 
     [JSInvokable]
     public async Task OnVideoEnded()
     {
-        await _store.Dispatch(new YtAction.VideoEnded());
+        if (Store == null) return;
+        await Store.Dispatch(new YtAction.VideoEnded());
     }
 
     [JSInvokable("OnPlayerStateChanged")]
     public async Task OnPlayerStateChanged(int ytState, string? videoId)
     {
-        await _store.Dispatch(new YtAction.PlayerStateChanged(ytState, videoId!));
+        if (Store == null) return;
+        await Store.Dispatch(new YtAction.PlayerStateChanged(ytState, videoId!));
     }
     
     private Task OnCreatePlaylistSubmit(CreatePlaylistDrawer.CreatePlaylistRequest r)
-        => _store.Dispatch(new YtAction.CreatePlaylist(r.Name, r.Description));
+    {
+        return Store == null
+            ? Task.CompletedTask
+            : Store.Dispatch(new YtAction.CreatePlaylist(r.Name, r.Description));
+    }
 
     private Task OnAddVideoSubmit(AddVideoDrawer.AddVideoRequest request)
-        => _store.Dispatch(new YtAction.AddVideo(request.PlaylistId, request.Url, request.Title));
-    
+    {
+        return Store == null
+            ? Task.CompletedTask
+            : Store.Dispatch(new YtAction.AddVideo(request.PlaylistId, request.Url, request.Title));
+    }
+
     public async ValueTask DisposeAsync()
     {
         try
@@ -309,6 +344,12 @@
         }
 
         _dotNetRef?.Dispose();
+        
+        // Unsubscribe from store
+        if (Store != null)
+        {
+            Store.StateChanged -= OnStoreStateChanged;
+        }
     }
 
     private string GetPlaylistItemStyle(bool isSelected)
@@ -329,5 +370,4 @@
     {
         _addVideoDrawerOpen = true;
     }
-
 }
