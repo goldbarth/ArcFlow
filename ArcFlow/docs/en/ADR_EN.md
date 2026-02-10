@@ -99,3 +99,51 @@ The compiler enforces explicit handling of all action types. New actions cannot 
 - Compiler-guaranteed action completeness
 - Clear documentation of which actions change state and which don't
 - Runtime exception for forgotten actions (instead of silent ignore)
+
+---
+
+## ADR-008: Result Pattern for Error Handling
+
+**Decision**
+Expected failure cases in store operations are handled via a `Result<T>` pattern instead of exceptions.
+
+**Reasoning**
+Exceptions are meant for unexpected errors. Validation failures (e.g. invalid YouTube URL), missing resources, or external API errors are *expected* and should not interrupt normal control flow. The Result pattern allows explicit distinction between `Success(T)` and `Failure(OperationError)` with categorized errors (`Validation`, `NotFound`, `Transient`, `External`, `Unexpected`).
+
+**Consequences**
+- Effects can handle errors specifically instead of relying solely on try-catch
+- Error categories enable differentiated UI responses (Warning vs. Error)
+- `OperationContext` with correlation IDs allows log correlation across async flows
+- Technical error details remain separated from user-facing messages
+
+---
+
+## ADR-009: Notification System with Toast UI
+
+**Decision**
+User feedback is managed through a centralized notification system in store state — rendered as toast notifications with auto-dismiss.
+
+**Reasoning**
+Error messages, warnings, and success messages are UI state and belong in the store. Instead of `alert()` calls or component-local error states, an `ImmutableList<Notification>` is maintained in `YouTubePlayerState`. The `NotificationPanel` component renders these as color-coded, animated toast messages. Auto-dismiss (5s) and manual close are controlled via dedicated actions (`ShowNotification`, `DismissNotification`).
+
+**Consequences**
+- Notifications are part of the unidirectional data flow
+- No hidden UI state for error messages
+- Severity mapping: `Validation`/`NotFound`/`Transient` → Warning, `External`/`Unexpected` → Error
+- Notifications can be verified in tests via state inspection
+
+---
+
+## ADR-010: Structured Logging with Operation Context
+
+**Decision**
+All store effects log in a structured manner via `ILogger<YouTubePlayerStore>` with an `OperationContext` containing operation name, correlation ID, and entity IDs.
+
+**Reasoning**
+In async flows (DB → JS interop → follow-up actions), correlating log entries without explicit context is nearly impossible. The `OperationContext` is created for every operation and contains a unique `CorrelationId` along with optional `PlaylistId`, `VideoId`, and `Index`. Log levels are derived from `ErrorCategory` (Warning/Error). Successful operations are logged at `Information` level.
+
+**Consequences**
+- Every operation is traceable via its correlation ID
+- Technical log details and user-facing messages are explicitly separated
+- Log entries contain structured properties for machine-readable analysis
+- For `Unexpected` errors, the correlation ID is displayed in the notification to enable log tracing

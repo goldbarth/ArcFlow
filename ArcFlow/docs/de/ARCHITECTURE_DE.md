@@ -34,10 +34,15 @@ Typische Struktur:
 
 - `Features/YouTubePlayer/Store/`
     - `YouTubePlayerStore.cs` – verwaltet State, Dispatch, Reducer und Effects
+- `Features/YouTubePlayer/Components/`
+    - `NotificationPanel.razor` – Toast-Benachrichtigungen (auto-dismiss, farbkodiert)
 - `Features/YouTubePlayer/State/`
     - `YouTubePlayerState.cs` (Root-State)
     - Sub-States (z. B. `PlaylistsState`, `QueueState`, `PlayerState`)
     - `YtAction.cs` (Actions)
+    - `Notification.cs` (Notification-Modell + Severity)
+    - `OperationError.cs` (Kategorisierte Fehler + OperationContext)
+    - `Result.cs` (Result-Pattern für erwartbare Fehler)
 - `Features/YouTubePlayer/Models/`
     - Domänenmodelle (z. B. `Playlist`, `VideoItem`)
 - `wwwroot/js/`
@@ -53,6 +58,8 @@ Enthält:
 - `Playlists`: loading / empty / loaded (Liste der Playlists)
 - `Queue`: ausgewählte Playlist, sortierte Videoliste, aktueller Index
 - `Player`: Player-Zustand (empty / loading / buffering / playing / paused)
+- `Notifications`: `ImmutableList<Notification>` — aktive Benachrichtigungen für die UI
+- `LastError`: `OperationError?` — letzter aufgetretener Fehler (für Debugging)
 
 Alle UI-Entscheidungen werden aus diesen Werten abgeleitet.
 
@@ -89,7 +96,11 @@ Von der UI ausgelöst:
 Von Effects ausgelöst:
 - `PlaylistsLoaded(playlists)`
 - `PlaylistLoaded(playlist)`
-- optionale Fehlerbehandlung (z. B. `OperationFailed(message)`)
+
+### Error Handling & Notifications
+- `OperationFailed(OperationError)` — kategorisierter Fehler mit Kontext
+- `ShowNotification(Notification)` — zeigt Benachrichtigung in der UI
+- `DismissNotification(CorrelationId)` — entfernt Benachrichtigung (manuell oder auto-dismiss)
 
 ### Action-Kategorien
 **State-ändernde Actions:**
@@ -158,6 +169,13 @@ Erlaubter lokaler UI-State:
 - Drawer-Flags
 - SortableJS-Lifecycle-Flags
 
+### NotificationPanel (`NotificationPanel.razor`)
+Aufgaben:
+- Rendert aktive Notifications aus dem Store-State als Toast-Meldungen
+- Verwaltet Auto-Dismiss-Timer (5s) über `CancellationTokenSource`
+- Leitet manuelles Schließen als `DismissNotification`-Action weiter
+- Implementiert `IDisposable` für sauberes Timer-Cleanup
+
 ### Drawer
 Drawer sind reine Eingabekomponenten:
 - sammeln Nutzereingaben
@@ -218,9 +236,55 @@ Daher:
 ---
 
 ## Fehlerbehandlung
-Fehler sollten nicht aus UI-Event-Handlern geworfen werden.
-Stattdessen kann der Store `OperationFailed(message)` dispatchen,
-wodurch die UI gezielt Feedback anzeigen kann.
+
+### Result Pattern
+Erwartbare Fehlerfälle werden über `Result<T>` abgebildet statt über Exceptions:
+- `Result<T>.Success(value)` — erfolgreiche Operation
+- `Result<T>.Failure(OperationError)` — kategorisierter Fehler mit Kontext
+
+### Fehlerkategorien (`ErrorCategory`)
+| Kategorie | Bedeutung | UI-Severity |
+|-----------|-----------|-------------|
+| `Validation` | Eingabevalidierung fehlgeschlagen (z. B. ungültige YouTube-URL) | Warning |
+| `NotFound` | Ressource nicht gefunden oder Zustandskonflikt | Warning |
+| `Transient` | Netzwerk-/Timeout-Fehler — potenziell wiederholbar | Warning |
+| `External` | JS-Interop- oder externe API-Fehler | Error |
+| `Unexpected` | Unerwartete Bugs / unbehandelte Exceptions | Error |
+
+### OperationContext
+Jede Operation erzeugt einen `OperationContext` mit:
+- `Operation`: Name der Operation (z. B. `"AddVideo"`)
+- `CorrelationId`: eindeutige ID zur Log-Korrelation
+- `PlaylistId`, `VideoId`, `Index`: optionale Entity-Referenzen
+
+### Fehlerfluss
+1. Effect führt Operation aus
+2. Bei Fehler: `OperationError` mit Kategorie und Kontext erzeugen
+3. `OperationFailed(error)` dispatchen → Reducer speichert `LastError`
+4. `ShowNotification(notification)` dispatchen → UI zeigt Toast
+5. Strukturiertes Logging mit Correlation-ID und Entity-IDs
+
+### Benachrichtigungen
+- `NotificationPanel`-Komponente rendert `ImmutableList<Notification>` als Toast-Meldungen
+- Farbkodiert nach Severity (Success: grün, Info: blau, Warning: gelb, Error: rot)
+- Auto-Dismiss nach 5 Sekunden, manuelles Schließen über `DismissNotification`
+- Slide-in-Animation, fixed positioniert (oben rechts)
+
+### YouTube-URL-Validierung
+`ExtractYouTubeId` validiert mehrere URL-Formate:
+- `youtube.com/watch?v=ID`
+- `youtu.be/ID`
+- `youtube.com/embed/ID`
+- `IsValidYouTubeId`: prüft 11-Zeichen YouTube-ID-Format
+
+Ungültige URLs werden als `Validation`-Fehler mit nutzerfreundlicher Meldung behandelt.
+
+### Logging-Strategie
+- `ILogger<YouTubePlayerStore>` für alle Store-Effects
+- Log-Level abgeleitet aus `ErrorCategory` (Warning/Error)
+- Erfolgreiche Operationen auf `Information`-Level
+- Strukturierte Properties: `Operation`, `Category`, `CorrelationId`, `PlaylistId`, `VideoId`, `Exception`
+- Nutzersichtbare Meldungen explizit getrennt von technischen Log-Details
 
 ---
 

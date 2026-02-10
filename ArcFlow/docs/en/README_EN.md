@@ -28,6 +28,7 @@ The main feature deliberately combines several challenges in one:
 - **Drag & Drop** — SortableJS with deliberate lifecycle handling in Blazor
 - **Persistence** — Local storage via SQLite (EF Core)
 - **Explicit State Management** — Store-driven data flow through Actions, Reducers, and Effects
+- **Error Handling & Notifications** — Result pattern with categorized errors, toast notifications, and structured logging
 
 > More tools will follow when they bring something architecturally new to the table.
 
@@ -71,12 +72,14 @@ This project shows how I approach software development:
 > No deadlines, no promises — just the direction this project is heading.
 
 **Current Focus**
-- Error handling strategy — unified pattern for store errors and UI feedback
 - Undo/redo for queue actions — demonstrates time-travel capability of the store architecture
 
 **Next**
 - Shuffle/repeat modes — extend existing queue logic with playback strategies
 - Polish UI — responsiveness, edge cases, micro-interactions
+
+**Completed**
+- ~~Error handling strategy~~ — Result pattern, categorized errors, toast notifications, structured logging
 
 **On the Radar**
 - Playback persistence — restore player state (position, active track) across sessions
@@ -109,8 +112,8 @@ ArcFlow/
 │   └── YouTubePlayer/
 │       ├── Components/     # Feature-specific UI components
 │       ├── Models/         # Domain models
-│       ├── State/          # State slices + actions
-│       ├── Store/          # Store + reducer + effects
+│       ├── State/          # State slices + actions + error/result types
+│       ├── Store/          # Store + reducer + effects + logging
 │       └── YouTubePlayer.razor
 ├── Migrations/             # EF Core migrations
 ├── wwwroot/                # Static assets (CSS, JS)
@@ -123,11 +126,11 @@ ArcFlow/
 <!-- START_RECENTLY_WORKED_ON -->
 | Feature | Date | Commit |
 |---------|------|--------|
-| feat: refactor YouTube player feature to strict store-driven state management | 2026-02-06 | [4da5354](https://github.com/goldbarth/DevToolbox/commit/4da53541ba51775c0d04a728bc6d1bab8679dd6c) |
-| feat: add OnPlayerStateChanged method for handling YouTube player state changes | 2026-02-06 | [5511eee](https://github.com/goldbarth/DevToolbox/commit/5511eee15c2db1e7974ff611da61e2050caff35b) |
-| feat: add PlayerState model for YouTubePlayer feature | 2026-02-06 | [31af266](https://github.com/goldbarth/DevToolbox/commit/31af2668cd3ee8f2aa35fdc92293986700fe9fae) |
-| feat: implement YouTube Player with playlist and video management | 2026-02-04 | [d31b79d](https://github.com/goldbarth/DevToolbox/commit/d31b79df00b28e1a6e04b567ce96384eeba90a09) |
-| feat: add drawers for creating playlists and adding videos | 2026-02-04 | [5767720](https://github.com/goldbarth/DevToolbox/commit/5767720f8ee5db6889d5c726484a45b21523427a) |
+| feat: implement comprehensive error handling with notification system and YouTube URL validation | 2026-02-10 | [538e0d0](https://github.com/goldbarth/ArcFlow/commit/538e0d0e57252ae1760a1902a1abfbb8822f9361) |
+| feat: implement comprehensive error handling and notification system for YouTube Player store | 2026-02-10 | [0f665cd](https://github.com/goldbarth/ArcFlow/commit/0f665cdf06e4588c5ce28ddd0400f21872f7cfc4) |
+| feat: refactor YouTube player feature to strict store-driven state management | 2026-02-06 | [4da5354](https://github.com/goldbarth/ArcFlow/commit/4da53541ba51775c0d04a728bc6d1bab8679dd6c) |
+| feat: add OnPlayerStateChanged method for handling YouTube player state changes | 2026-02-06 | [5511eee](https://github.com/goldbarth/ArcFlow/commit/5511eee15c2db1e7974ff611da61e2050caff35b) |
+| feat: add PlayerState model for YouTubePlayer feature | 2026-02-06 | [31af266](https://github.com/goldbarth/ArcFlow/commit/31af2668cd3ee8f2aa35fdc92293986700fe9fae) |
 <!-- END_RECENTLY_WORKED_ON -->
 
 ## 📜 License

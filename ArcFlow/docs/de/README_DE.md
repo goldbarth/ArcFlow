@@ -28,6 +28,7 @@ Das Haupt-Feature kombiniert bewusst mehrere Herausforderungen in einem Feature:
 - **Drag & Drop** — SortableJS mit bewusstem Lifecycle-Handling in Blazor
 - **Persistenz** — Lokale Speicherung über SQLite (EF Core)
 - **Explizites State-Management** — Store-getriebener Datenfluss über Actions, Reducer und Effects
+- **Fehlerbehandlung & Notifications** — Result Pattern mit kategorisierten Fehlern, Toast-Benachrichtigungen und strukturiertem Logging
 
 > Weitere Tools folgen, wenn sie architektonisch etwas Neues einbringen.
 
@@ -71,12 +72,14 @@ Dieses Projekt zeigt, wie ich an Software-Entwicklung herangehe:
 > Kein Zeitplan, keine Versprechen — nur die Richtung, in die das Projekt wächst.
 
 **Aktueller Fokus**
-- Fehlerbehandlungsstrategie — einheitliches Pattern für Store-Fehler und UI-Feedback
 - Undo/Redo für Queue-Actions — zeigt Zeitreise-Fähigkeit der Store-Architektur
 
 **Als Nächstes**
 - Shuffle/Repeat-Modi — Erweiterung der bestehenden Queue-Logik um Playback-Strategien
 - UI polieren — Responsiveness, Edge Cases, Micro-Interactions
+
+**Abgeschlossen**
+- ~~Fehlerbehandlungsstrategie~~ — Result Pattern, kategorisierte Fehler, Toast-Notifications, strukturiertes Logging
 
 **Auf dem Radar**
 - Playback-Persistenz — Player-State (Position, aktiver Track) über Sessions hinweg wiederherstellen
@@ -109,8 +112,8 @@ ArcFlow/
 │   └── YouTubePlayer/
 │       ├── Components/     # Feature-spezifische UI-Komponenten
 │       ├── Models/         # Domain Models
-│       ├── State/          # State Slices + Actions
-│       ├── Store/          # Store + Reducer + Effects
+│       ├── State/          # State Slices + Actions + Error/Result Types
+│       ├── Store/          # Store + Reducer + Effects + Logging
 │       └── YouTubePlayer.razor
 ├── Migrations/             # EF Core Migrationen
 ├── wwwroot/                # Statische Assets (CSS, JS)
@@ -123,11 +126,11 @@ ArcFlow/
 <!-- START_RECENTLY_WORKED_ON -->
 | Feature | Datum | Commit |
 |---------|-------|--------|
-| feat: refactor YouTube player feature to strict store-driven state management | 2026-02-06 | [4da5354](https://github.com/goldbarth/DevToolbox/commit/4da53541ba51775c0d04a728bc6d1bab8679dd6c) |
-| feat: add OnPlayerStateChanged method for handling YouTube player state changes | 2026-02-06 | [5511eee](https://github.com/goldbarth/DevToolbox/commit/5511eee15c2db1e7974ff611da61e2050caff35b) |
-| feat: add PlayerState model for YouTubePlayer feature | 2026-02-06 | [31af266](https://github.com/goldbarth/DevToolbox/commit/31af2668cd3ee8f2aa35fdc92293986700fe9fae) |
-| feat: implement YouTube Player with playlist and video management | 2026-02-04 | [d31b79d](https://github.com/goldbarth/DevToolbox/commit/d31b79df00b28e1a6e04b567ce96384eeba90a09) |
-| feat: add drawers for creating playlists and adding videos | 2026-02-04 | [5767720](https://github.com/goldbarth/DevToolbox/commit/5767720f8ee5db6889d5c726484a45b21523427a) |
+| feat: implement comprehensive error handling with notification system and YouTube URL validation | 2026-02-10 | [538e0d0](https://github.com/goldbarth/ArcFlow/commit/538e0d0e57252ae1760a1902a1abfbb8822f9361) |
+| feat: implement comprehensive error handling and notification system for YouTube Player store | 2026-02-10 | [0f665cd](https://github.com/goldbarth/ArcFlow/commit/0f665cdf06e4588c5ce28ddd0400f21872f7cfc4) |
+| feat: refactor YouTube player feature to strict store-driven state management | 2026-02-06 | [4da5354](https://github.com/goldbarth/ArcFlow/commit/4da53541ba51775c0d04a728bc6d1bab8679dd6c) |
+| feat: add OnPlayerStateChanged method for handling YouTube player state changes | 2026-02-06 | [5511eee](https://github.com/goldbarth/ArcFlow/commit/5511eee15c2db1e7974ff611da61e2050caff35b) |
+| feat: add PlayerState model for YouTubePlayer feature | 2026-02-06 | [31af266](https://github.com/goldbarth/ArcFlow/commit/31af2668cd3ee8f2aa35fdc92293986700fe9fae) |
 <!-- END_RECENTLY_WORKED_ON -->
 
 ## 📜 Lizenz

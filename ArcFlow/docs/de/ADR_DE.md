@@ -98,3 +98,51 @@ Der Compiler erzwingt die explizite Behandlung aller Action-Typen. Neue Actions 
 - Compiler-garantierte Action-Vollständigkeit
 - Klare Dokumentation, welche Actions State ändern und welche nicht
 - Runtime-Exception bei vergessenen Actions (statt stilles Ignorieren)
+
+---
+
+## ADR-008: Result Pattern für Fehlerbehandlung
+
+**Entscheidung**
+Erwartbare Fehlerfälle in Store-Operationen werden über ein `Result<T>`-Pattern abgebildet statt über Exceptions.
+
+**Begründung**
+Exceptions sind für unerwartete Fehler gedacht. Validierungsfehler (z. B. ungültige YouTube-URL), nicht gefundene Ressourcen oder externe API-Fehler sind jedoch *erwartbar* und sollten den normalen Kontrollfluss nicht unterbrechen. Das Result Pattern erlaubt explizite Unterscheidung zwischen `Success(T)` und `Failure(OperationError)` mit kategorisierten Fehlern (`Validation`, `NotFound`, `Transient`, `External`, `Unexpected`).
+
+**Konsequenzen**
+- Effects können Fehler gezielt behandeln statt alles über try-catch abzufangen
+- Fehlerkategorien ermöglichen differenzierte UI-Reaktionen (Warning vs. Error)
+- `OperationContext` mit Correlation-IDs erlaubt Log-Korrelation über asynchrone Flows
+- Technische Fehlerdetails bleiben von nutzersichtbaren Meldungen getrennt
+
+---
+
+## ADR-009: Benachrichtigungssystem mit Toast-UI
+
+**Entscheidung**
+Nutzerfeedback wird über ein zentrales Benachrichtigungssystem im Store-State gesteuert — dargestellt als Toast-Notifications mit automatischem Dismiss.
+
+**Begründung**
+Fehlermeldungen, Warnungen und Erfolgsmeldungen sind UI-State und gehören in den Store. Statt `alert()`-Aufrufe oder komponentenlokale Fehlerzustände wird eine `ImmutableList<Notification>` im `YouTubePlayerState` geführt. Die `NotificationPanel`-Komponente rendert diese als farbkodierte, animierte Toast-Meldungen. Auto-Dismiss (5s) und manuelles Schließen werden über dedizierte Actions gesteuert (`ShowNotification`, `DismissNotification`).
+
+**Konsequenzen**
+- Notifications sind Teil des unidirektionalen Datenflusses
+- Keine versteckten UI-Zustände für Fehlermeldungen
+- Severity-Mapping: `Validation`/`NotFound`/`Transient` → Warning, `External`/`Unexpected` → Error
+- Notifications können in Tests über den State verifiziert werden
+
+---
+
+## ADR-010: Strukturiertes Logging mit Operation Context
+
+**Entscheidung**
+Alle Store-Effects loggen strukturiert über `ILogger<YouTubePlayerStore>` mit einem `OperationContext`, der Operation, Correlation-ID und Entity-IDs enthält.
+
+**Begründung**
+Bei asynchronen Flows (DB → JS-Interop → Folge-Actions) ist eine Korrelation von Log-Einträgen ohne expliziten Kontext kaum möglich. Der `OperationContext` wird bei jeder Operation erzeugt und enthält eine eindeutige `CorrelationId` sowie optional `PlaylistId`, `VideoId` und `Index`. Log-Level werden aus der `ErrorCategory` abgeleitet (Warning/Error). Erfolgreiche Operationen werden auf `Information`-Level geloggt.
+
+**Konsequenzen**
+- Jede Operation ist über die Correlation-ID nachvollziehbar
+- Technische Log-Details und nutzersichtbare Meldungen sind explizit getrennt
+- Log-Einträge enthalten strukturierte Properties für maschinelle Auswertung
+- Bei `Unexpected`-Fehlern wird die Correlation-ID in der Notification angezeigt, um Log-Tracing zu ermöglichen
