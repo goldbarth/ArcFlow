@@ -426,3 +426,6 @@ fabric.properties
 .db
 .db-shm
 .db-wal
+
+# Claude Code
+.claude/
