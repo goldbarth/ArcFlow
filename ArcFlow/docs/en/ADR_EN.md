@@ -147,3 +147,28 @@ In async flows (DB → JS interop → follow-up actions), correlating log entrie
 - Technical log details and user-facing messages are explicitly separated
 - Log entries contain structured properties for machine-readable analysis
 - For `Unexpected` errors, the correlation ID is displayed in the notification to enable log tracing
+
+---
+
+## ADR-011: Snapshot-based Undo/Redo for QueueState
+
+**Decision**
+Undo/Redo is implemented exclusively for `QueueState` — via a Past/Present/Future snapshot model with `ImmutableList<QueueSnapshot>` stacks in state.
+
+**Reasoning**
+The store architecture with immutable state and pure reducers is ideally suited for time-travel features. Rather than building a generic command stack, snapshots of `QueueState` are captured before each undoable action. This is simpler, more direct, and avoids the complexity of inverse operations.
+
+**Critical detail — `VideoPositions`:** `VideoItem` is a mutable class (not a record). `HandleSortChanged` mutates `Position` in-place on shared references. Without a separate `VideoPositions` array in the snapshot, past snapshots would be silently corrupted by later sorts. The parallel array captures `Position` values at snapshot time and restores them on undo.
+
+**UndoPolicy** determines behavior per action:
+- `SelectVideo`, `SortChanged` → undoable (snapshot pushed to Past)
+- `PlaylistLoaded`, `SelectPlaylist` → boundary (complete history reset)
+- All others → history unchanged
+
+**Effect gating:** `UndoRequested`/`RedoRequested` skip `RunEffects` entirely — undo/redo is purely reducer-based, with no DB persistence or JS interop.
+
+**Consequences**
+- Only queue mutations are undoable — player state and playlist management remain outside
+- History limit of 30 entries prevents memory issues
+- New undoable actions only require an update to `UndoPolicy.IsUndoable()`
+- Comprehensive test coverage (27 tests) ensures correctness

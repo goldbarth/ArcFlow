@@ -29,6 +29,7 @@ Das Haupt-Feature kombiniert bewusst mehrere Herausforderungen in einem Feature:
 - **Persistenz** — Lokale Speicherung über SQLite (EF Core)
 - **Explizites State-Management** — Store-getriebener Datenfluss über Actions, Reducer und Effects
 - **Fehlerbehandlung & Notifications** — Result Pattern mit kategorisierten Fehlern, Toast-Benachrichtigungen und strukturiertem Logging
+- **Undo/Redo** — Snapshot-basierte Zeitreise für Queue-Aktionen mit Past/Future-Stacks
 
 > Weitere Tools folgen, wenn sie architektonisch etwas Neues einbringen.
 
@@ -72,15 +73,15 @@ Dieses Projekt zeigt, wie ich an Software-Entwicklung herangehe:
 > Kein Zeitplan, keine Versprechen — nur die Richtung, in die das Projekt wächst.
 
 **Aktueller Fokus**
-- Undo/Redo für Queue-Actions — zeigt Zeitreise-Fähigkeit der Store-Architektur
+- Shuffle/Repeat-Modi — Erweiterung der bestehenden Queue-Logik um Playback-Strategien
 
 **Als Nächstes**
-- Shuffle/Repeat-Modi — Erweiterung der bestehenden Queue-Logik um Playback-Strategien
 - UI polieren — Responsiveness, Edge Cases, Micro-Interactions
 
 **Abgeschlossen**
-- ~~Playlist- & Video-Verwaltung~~ — CRUD-Operationen, Auswahl, Queue-Steuerung
+- ~~Undo/Redo~~ — Snapshot-basierte Zeitreise für Queue-Aktionen (SelectVideo, SortChanged) mit Past/Future-Stacks, UndoPolicy und Effect-Gating
 - ~~Persistenz~~ — SQLite mit EF Core, Domain-Modelle mit Fluent API Mappings
+- ~~Playlist- & Video-Verwaltung~~ — CRUD-Operationen, Auswahl, Queue-Steuerung
 - ~~YouTube Player Integration~~ — IFrame API via kontrollierter JS-Interop, PlayerState-Tracking
 - ~~Drag & Drop~~ — SortableJS mit bewusstem Lifecycle-Handling außerhalb von Blazor-Diffing
 - ~~UI-Grundgerüst~~ — MudBlazor-Integration, Layout mit Sidebar, Drawers als Dispatch-only-Komponenten
@@ -103,6 +104,7 @@ Dieses Projekt zeigt, wie ich an Software-Entwicklung herangehe:
 | **SQLite** | 10.0.2 | Lokale Datenbank |
 | **MudBlazor** | 8.15.0 | UI-Komponenten-Bibliothek |
 | **ASP.NET Core MVC** | — | Routing & Navigation |
+| **xUnit** | 2.9.3 | Unit-Testing-Framework |
 
 ## 📁 Projektstruktur
 
@@ -126,6 +128,12 @@ ArcFlow/
 ├── wwwroot/                # Statische Assets (CSS, JS)
 ├── Program.cs              # Einstiegspunkt
 └── appsettings.json        # Konfiguration
+
+ArcFlow.Tests/              # xUnit-Testprojekt
+├── UndoPolicyTests.cs      # Tests für Undo-Policy-Funktionen
+├── QueueSnapshotTests.cs   # Tests für Snapshot-Roundtrip & Positionswiederherstellung
+├── UndoRedoReducerTests.cs # Reducer-Tests für Undo/Redo
+└── EffectGatingTests.cs    # Tests für Effect-Gating bei Zeitreise-Actions
 ```
 
 ## 🔄 Recently Worked On

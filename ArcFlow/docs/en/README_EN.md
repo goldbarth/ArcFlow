@@ -29,6 +29,7 @@ The main feature deliberately combines several challenges in one:
 - **Persistence** — Local storage via SQLite (EF Core)
 - **Explicit State Management** — Store-driven data flow through Actions, Reducers, and Effects
 - **Error Handling & Notifications** — Result pattern with categorized errors, toast notifications, and structured logging
+- **Undo/Redo** — Snapshot-based time travel for queue actions with Past/Future stacks
 
 > More tools will follow when they bring something architecturally new to the table.
 
@@ -72,15 +73,15 @@ This project shows how I approach software development:
 > No deadlines, no promises — just the direction this project is heading.
 
 **Current Focus**
-- Undo/redo for queue actions — demonstrates time-travel capability of the store architecture
+- Shuffle/repeat modes — extend existing queue logic with playback strategies
 
 **Next**
-- Shuffle/repeat modes — extend existing queue logic with playback strategies
 - Polish UI — responsiveness, edge cases, micro-interactions
 
 **Completed**
-- ~~Playlist & video management~~ — CRUD operations, selection, queue control
+- ~~Undo/Redo~~ — Snapshot-based time travel for queue actions (SelectVideo, SortChanged) with Past/Future stacks, UndoPolicy, and effect gating
 - ~~Persistence~~ — SQLite with EF Core, domain models with Fluent API mappings
+- ~~Playlist & video management~~ — CRUD operations, selection, queue control
 - ~~YouTube Player integration~~ — IFrame API via controlled JS interop, PlayerState tracking
 - ~~Drag & drop~~ — SortableJS with deliberate lifecycle handling outside of Blazor diffing
 - ~~UI foundation~~ — MudBlazor integration, layout with sidebar, drawers as dispatch-only components
@@ -103,6 +104,7 @@ This project shows how I approach software development:
 | **SQLite** | 10.0.2 | Local Database |
 | **MudBlazor** | 8.15.0 | UI Component Library |
 | **ASP.NET Core MVC** | — | Routing & Navigation |
+| **xUnit** | 2.9.3 | Unit Testing Framework |
 
 ## 📁 Project Structure
 
@@ -126,6 +128,12 @@ ArcFlow/
 ├── wwwroot/                # Static assets (CSS, JS)
 ├── Program.cs              # Entry point
 └── appsettings.json        # Configuration
+
+ArcFlow.Tests/              # xUnit test project
+├── UndoPolicyTests.cs      # Undo policy function tests
+├── QueueSnapshotTests.cs   # Snapshot round-trip & position restoration tests
+├── UndoRedoReducerTests.cs # Core reducer undo/redo tests
+└── EffectGatingTests.cs    # Effect gating tests for time-travel actions
 ```
 
 ## 🔄 Recently Worked On

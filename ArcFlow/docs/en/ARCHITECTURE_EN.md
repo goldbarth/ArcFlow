@@ -40,6 +40,9 @@ Typical layout:
     - `YouTubePlayerState.cs` (root state)
     - sub-states (e.g. `PlaylistsState`, `QueueState`, `PlayerState`)
     - `YtAction.cs` (actions)
+    - `ActionOrigin.cs` (enum: `User`, `System`, `TimeTravel`)
+    - `QueueSnapshot.cs` (immutable snapshot with parallel `VideoPositions` array)
+    - `UndoPolicy.cs` (determines which actions are undoable/boundary)
     - `Notification.cs` (notification model + severity)
     - `OperationError.cs` (categorized errors + OperationContext)
     - `Result.cs` (Result pattern for expected failures)
@@ -72,6 +75,9 @@ The UI derives all view decisions from these values.
 - `SelectedPlaylistId`: `Guid?`
 - `Videos`: `ImmutableList<VideoItem>` (sorted by `Position`)
 - `CurrentIndex`: `int?` (current selection)
+- `Past`: `ImmutableList<QueueSnapshot>` — undo history (max 30 entries)
+- `Future`: `ImmutableList<QueueSnapshot>` — redo history
+- `CanUndo` / `CanRedo`: derived properties for UI binding
 
 ### Player
 Represents the playback lifecycle and is updated only via actions dispatched from JS interop
@@ -91,6 +97,8 @@ Triggered by the UI:
 - `CreatePlaylist(...)`
 - `AddVideo(...)`
 - `SortChanged(oldIndex, newIndex)`
+- `UndoRequested` — revert last queue change
+- `RedoRequested` — restore undone change
 
 ### Results (Loaded / Derived)
 Triggered by effects:
@@ -129,13 +137,22 @@ Processing happens serially in a background task to avoid race conditions.
 The reducer returns a new immutable `YouTubePlayerState`.
 No DB calls, no JS calls, no timing dependencies.
 
-**Exhaustive Pattern Matching:**
+**Phase structure:**
+
+1. `UndoRequested` / `RedoRequested` → routed directly to `ReduceUndo` / `ReduceRedo`
+2. All other actions:
+   - Capture pre-snapshot of current QueueState
+   - Execute `ReduceStandard` (contains exhaustive pattern matching)
+   - Apply `ApplyHistoryPolicy` (update or reset undo history)
+
+**Exhaustive Pattern Matching (in `ReduceStandard`):**
 
 ```csharp
-var newState = action switch 
-{ 
-    YtAction.SelectVideo sv => HandleSelectVideo(state, sv), 
-    YtAction.CreatePlaylist => state, // Effect-only _ => throw new UnreachableException(...) 
+var newState = action switch
+{
+    YtAction.SelectVideo sv => HandleSelectVideo(state, sv),
+    YtAction.CreatePlaylist => state, // Effect-only
+    _ => throw new UnreachableException(...)
 };
 ```
 
@@ -147,6 +164,8 @@ They may:
 - call services (DB, HTTP)
 - call JS interop
 - dispatch additional actions
+
+**Effect gating:** `UndoRequested` and `RedoRequested` skip effects entirely — undo/redo is purely reducer-based, with no DB persistence or JS interop.
 
 ### Lifecycle
 The store implements `IDisposable`:
@@ -225,6 +244,13 @@ Therefore:
 2. Reducer updates queue and player state
 3. Effect calls JS `loadVideo`
 
+### Undo/Redo
+1. User clicks Undo button → UI dispatches `UndoRequested`
+2. Reducer takes last snapshot from `Past`, creates snapshot of current state for `Future`
+3. `QueueState` is restored from snapshot (including `VideoPositions`)
+4. Effects are skipped (effect gating)
+5. UI updates: previous video index / sort order is restored
+
 ### Create Playlist
 1. Drawer emits `EventCallback<CreatePlaylistRequest>`
 2. Page dispatches `CreatePlaylist`
@@ -288,7 +314,48 @@ Invalid URLs are treated as `Validation` errors with user-friendly messages.
 
 ---
 
-## Testing Notes
+## Undo/Redo
+
+### Snapshot Model
+Undo/Redo operates exclusively on `QueueState` (not Player, not Playlists) via a Past/Present/Future snapshot model.
+
+**`QueueSnapshot`** captures:
+- `Videos` — reference to the current `ImmutableList<VideoItem>`
+- `VideoPositions` — parallel array with `Position` values at snapshot time
+- `SelectedPlaylistId`, `CurrentIndex`
+
+**Why `VideoPositions`?** `HandleSortChanged` mutates `VideoItem.Position` in-place on shared references. Without separate position capture, past snapshots would be silently corrupted by later sorts.
+
+### UndoPolicy
+Determines how history reacts to actions:
+
+| Rule | Actions | Behavior |
+|------|---------|----------|
+| **Undoable** | `SelectVideo`, `SortChanged` | Snapshot pushed to `Past`, `Future` cleared |
+| **Boundary** | `PlaylistLoaded`, `SelectPlaylist` | `Past` and `Future` cleared entirely |
+| **Other** | All others | History unchanged |
+
+### Limits
+- Maximum history depth: **30 entries** (`QueueState.HistoryLimit`)
+- Oldest entries are removed when limit is exceeded (FIFO trim)
+
+### Effect Gating
+`UndoRequested` and `RedoRequested` skip `RunEffects` entirely — no DB writes, no JS interop. Undo/Redo is a pure reducer operation.
+
+---
+
+## Testing
+
+### Test Project: `ArcFlow.Tests`
+xUnit-based test project with access to `internal` members via `InternalsVisibleTo`.
+
+| Test File | Focus |
+|-----------|-------|
+| `UndoPolicyTests` | `IsUndoable()` and `IsBoundary()` for all action types |
+| `QueueSnapshotTests` | Round-trip, position restoration after mutation |
+| `UndoRedoReducerTests` | Core undo/redo logic, history limit, boundary clearing, multi-step |
+| `EffectGatingTests` | No side-effects on undo/redo actions |
+
 - **Reducer**: unit-testable (state + action → new state)
 - **Effects**: testable via mocked services and asserted follow-up actions
 - **Drawers**: component tests without store dependency

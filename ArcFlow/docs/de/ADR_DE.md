@@ -146,3 +146,28 @@ Bei asynchronen Flows (DB → JS-Interop → Folge-Actions) ist eine Korrelation
 - Technische Log-Details und nutzersichtbare Meldungen sind explizit getrennt
 - Log-Einträge enthalten strukturierte Properties für maschinelle Auswertung
 - Bei `Unexpected`-Fehlern wird die Correlation-ID in der Notification angezeigt, um Log-Tracing zu ermöglichen
+
+---
+
+## ADR-011: Snapshot-basiertes Undo/Redo für QueueState
+
+**Entscheidung**
+Undo/Redo wird ausschließlich für `QueueState` implementiert — über ein Past/Present/Future-Snapshot-Modell mit `ImmutableList<QueueSnapshot>`-Stacks im State.
+
+**Begründung**
+Die Store-Architektur mit immutablem State und reinen Reducern eignet sich ideal für Zeitreise-Features. Statt einen generischen Command-Stack zu bauen, werden Snapshots des `QueueState` vor jeder undoable Action erfasst. Dies ist einfacher, direkter und vermeidet die Komplexität inverser Operations.
+
+**Kritisches Detail — `VideoPositions`:** `VideoItem` ist eine mutable Klasse (kein Record). `HandleSortChanged` mutiert `Position` in-place auf geteilten Referenzen. Ohne separates `VideoPositions`-Array im Snapshot würden vergangene Snapshots durch spätere Sortierungen korrumpiert. Das parallele Array erfasst die `Position`-Werte zum Snapshot-Zeitpunkt und stellt sie bei Restore wieder her.
+
+**UndoPolicy** bestimmt das Verhalten pro Action:
+- `SelectVideo`, `SortChanged` → undoable (Snapshot wird zu Past hinzugefügt)
+- `PlaylistLoaded`, `SelectPlaylist` → Boundary (kompletter History-Reset)
+- Alle anderen → History unverändert
+
+**Effect-Gating:** `UndoRequested`/`RedoRequested` überspringen `RunEffects` komplett — Undo/Redo ist rein reducer-basiert, ohne DB-Persistenz oder JS-Interop.
+
+**Konsequenzen**
+- Nur Queue-Mutationen sind undo-fähig — Player-State und Playlist-Verwaltung bleiben außen vor
+- History-Limit von 30 Einträgen verhindert Speicherprobleme
+- Neue undoable Actions erfordern nur eine Anpassung in `UndoPolicy.IsUndoable()`
+- Umfassende Testabdeckung (27 Tests) sichert die Korrektheit ab
