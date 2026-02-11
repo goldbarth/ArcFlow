@@ -94,6 +94,10 @@
     <div class="current-playlist">
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <h4>@(SelectedPlaylistName)</h4>
+            <div>
+                <MudIconButton Icon="@Icons.Material.Filled.Undo" OnClick="Undo" Disabled="!CanUndo" Size="Size.Small" />
+                <MudIconButton Icon="@Icons.Material.Filled.Redo" OnClick="Redo" Disabled="!CanRedo" Size="Size.Small" />
+            </div>
         </div>
         @if (Videos.Any())
         {
@@ -186,6 +190,11 @@
     private bool IsPlaying => State.Player is PlayerState.Playing;
     private bool CanPlayNext => CurrentIndex is { } i && i < Videos.Count - 1;
     private bool CanPlayPrevious => CurrentIndex is { } and > 0;
+
+    private bool CanUndo => State.Queue.CanUndo;
+    private bool CanRedo => State.Queue.CanRedo;
+    private Task Undo() => Store?.Dispatch(new YtAction.UndoRequested()) ?? Task.CompletedTask;
+    private Task Redo() => Store?.Dispatch(new YtAction.RedoRequested()) ?? Task.CompletedTask;
 
     protected override Task OnInitializedAsync()
     {

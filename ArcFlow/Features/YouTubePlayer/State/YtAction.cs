@@ -5,6 +5,8 @@ namespace ArcFlow.Features.YouTubePlayer.State;
 
 public record YtAction
 {
+    public ActionOrigin Origin { get; init; } = ActionOrigin.User;
+
     // App/Feature lifecycle
     public sealed record Initialize : YtAction;
     // Data loaded (results)
@@ -30,4 +32,8 @@ public record YtAction
     // Notifications
     public sealed record ShowNotification(Notification Notification) : YtAction;
     public sealed record DismissNotification(Guid CorrelationId) : YtAction;
+
+    // Undo/Redo
+    public sealed record UndoRequested : YtAction;
+    public sealed record RedoRequested : YtAction;
 }

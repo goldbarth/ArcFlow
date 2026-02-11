@@ -8,6 +8,10 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <InternalsVisibleTo Include="ArcFlow.Tests" />
+    </ItemGroup>
+
+    <ItemGroup>
       <Folder Include="Shared\" />
     </ItemGroup>
 

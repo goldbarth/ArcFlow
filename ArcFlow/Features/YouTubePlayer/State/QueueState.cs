@@ -5,10 +5,18 @@ namespace ArcFlow.Features.YouTubePlayer.State;
 
 public record QueueState
 {
+    public const int HistoryLimit = 30;
+
     public Guid? SelectedPlaylistId { get; init; }
     public ImmutableList<VideoItem> Videos { get; init; } = ImmutableList<VideoItem>.Empty;
     public int? CurrentIndex { get; init; }
-    
+
+    public ImmutableList<QueueSnapshot> Past { get; init; } = ImmutableList<QueueSnapshot>.Empty;
+    public ImmutableList<QueueSnapshot> Future { get; init; } = ImmutableList<QueueSnapshot>.Empty;
+
+    public bool CanUndo => !Past.IsEmpty;
+    public bool CanRedo => !Future.IsEmpty;
+
     public bool HasSelection => SelectedPlaylistId is not null;
     public bool HasVideo  => CurrentIndex is not null;
 

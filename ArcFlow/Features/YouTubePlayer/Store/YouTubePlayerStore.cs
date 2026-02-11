@@ -107,9 +107,24 @@ public sealed class YouTubePlayerStore
     
     #region Reducer
 
-    private YouTubePlayerState Reduce(YouTubePlayerState state, YtAction action)
+    internal YouTubePlayerState Reduce(YouTubePlayerState state, YtAction action)
     {
-        var newState = action switch
+        if (action is YtAction.UndoRequested)
+            return ReduceUndo(state);
+
+        if (action is YtAction.RedoRequested)
+            return ReduceRedo(state);
+
+        var preSnapshot = QueueSnapshot.FromQueueState(state.Queue);
+        var newState = ReduceStandard(state, action);
+        newState = ApplyHistoryPolicy(state.Queue, newState, action, preSnapshot);
+
+        return newState with { Queue = newState.Queue.Validate() };
+    }
+
+    private YouTubePlayerState ReduceStandard(YouTubePlayerState state, YtAction action)
+    {
+        return action switch
         {
             // Actions with state update
             YtAction.Initialize => HandleInitialize(state),
@@ -131,8 +146,93 @@ public sealed class YouTubePlayerStore
             // Compiler forces you to handle all actions
             _ => throw new UnreachableException($"Unhandled action: {action.GetType().Name}")
         };
-        
-        return newState with { Queue = newState.Queue.Validate() };
+    }
+
+    private static YouTubePlayerState ReduceUndo(YouTubePlayerState state)
+    {
+        if (state.Queue.Past.IsEmpty)
+            return state;
+
+        var snapshot = state.Queue.Past[^1];
+        var currentSnapshot = QueueSnapshot.FromQueueState(state.Queue);
+        var restored = snapshot.ToQueueState();
+
+        return state with
+        {
+            Queue = restored with
+            {
+                Past = state.Queue.Past.RemoveAt(state.Queue.Past.Count - 1),
+                Future = state.Queue.Future.Add(currentSnapshot)
+            }
+        };
+    }
+
+    private static YouTubePlayerState ReduceRedo(YouTubePlayerState state)
+    {
+        if (state.Queue.Future.IsEmpty)
+            return state;
+
+        var snapshot = state.Queue.Future[^1];
+        var currentSnapshot = QueueSnapshot.FromQueueState(state.Queue);
+        var restored = snapshot.ToQueueState();
+
+        return state with
+        {
+            Queue = restored with
+            {
+                Past = state.Queue.Past.Add(currentSnapshot),
+                Future = state.Queue.Future.RemoveAt(state.Queue.Future.Count - 1)
+            }
+        };
+    }
+
+    private static YouTubePlayerState ApplyHistoryPolicy(
+        QueueState oldQueue, YouTubePlayerState newState, YtAction action, QueueSnapshot preSnapshot)
+    {
+        if (UndoPolicy.IsBoundary(action))
+        {
+            return newState with
+            {
+                Queue = newState.Queue with
+                {
+                    Past = ImmutableList<QueueSnapshot>.Empty,
+                    Future = ImmutableList<QueueSnapshot>.Empty
+                }
+            };
+        }
+
+        if (UndoPolicy.IsUndoable(action) && QueueDataChanged(oldQueue, newState.Queue))
+        {
+            var past = newState.Queue.Past.Add(preSnapshot);
+            if (past.Count > QueueState.HistoryLimit)
+                past = past.RemoveAt(0);
+
+            return newState with
+            {
+                Queue = newState.Queue with
+                {
+                    Past = past,
+                    Future = ImmutableList<QueueSnapshot>.Empty
+                }
+            };
+        }
+
+        // Non-undoable actions: preserve history as-is
+        return newState with
+        {
+            Queue = newState.Queue with
+            {
+                Past = oldQueue.Past,
+                Future = oldQueue.Future
+            }
+        };
+    }
+
+    private static bool QueueDataChanged(QueueState oldQueue, QueueState newQueue)
+    {
+        return oldQueue.SelectedPlaylistId != newQueue.SelectedPlaylistId
+               || oldQueue.CurrentIndex != newQueue.CurrentIndex
+               || !ReferenceEquals(oldQueue.Videos, newQueue.Videos);
     }
 
     private YouTubePlayerState HandleInitialize(YouTubePlayerState state)
@@ -290,6 +390,9 @@ public sealed class YouTubePlayerStore
     // Effects (interop + service)
     private async Task RunEffects(YtAction action)
     {
+        if (action is YtAction.UndoRequested or YtAction.RedoRequested)
+            return;
+
         switch (action)
         {
             case YtAction.Initialize:
@@ -743,18 +846,18 @@ public sealed class YouTubePlayerStore
         return Notification.FromError(error, userMessage);
     }
     
-    private YouTubePlayerState HandleShowNotification(YouTubePlayerState state, YtAction.ShowNotification action)
+    private static YouTubePlayerState HandleShowNotification(YouTubePlayerState state, YtAction.ShowNotification action)
     {
-        return state with 
-        { 
+        return state with
+        {
             Notifications = state.Notifications.Add(action.Notification)
         };
     }
-    
-    private YouTubePlayerState HandleDismissNotification(YouTubePlayerState state, YtAction.DismissNotification action)
+
+    private static YouTubePlayerState HandleDismissNotification(YouTubePlayerState state, YtAction.DismissNotification action)
     {
-        return state with 
-        { 
+        return state with
+        {
             Notifications = state.Notifications.RemoveAll(n => n.CorrelationId == action.CorrelationId)
         };
     }
