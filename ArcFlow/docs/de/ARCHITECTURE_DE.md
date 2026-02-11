@@ -35,7 +35,8 @@ Typische Struktur:
 - `Features/YouTubePlayer/Store/`
     - `YouTubePlayerStore.cs` – verwaltet State, Dispatch, Reducer und Effects
 - `Features/YouTubePlayer/Components/`
-    - `NotificationPanel.razor` – Toast-Benachrichtigungen (auto-dismiss, farbkodiert)
+    - `CreatePlaylistDrawer.razor` – MudDrawer (Temporary) für Playlist-Erstellung
+    - `AddVideoDrawer.razor` – MudDrawer (Temporary) für Video-Hinzufügung
 - `Features/YouTubePlayer/State/`
     - `YouTubePlayerState.cs` (Root-State)
     - Sub-States (z. B. `PlaylistsState`, `QueueState`, `PlayerState`)
@@ -187,15 +188,15 @@ Erlaubter lokaler UI-State:
 - Drawer-Flags
 - SortableJS-Lifecycle-Flags
 
-### NotificationPanel (`NotificationPanel.razor`)
-Aufgaben:
-- Rendert aktive Notifications aus dem Store-State als Toast-Meldungen
-- Verwaltet Auto-Dismiss-Timer (5s) über `CancellationTokenSource`
-- Leitet manuelles Schließen als `DismissNotification`-Action weiter
-- Implementiert `IDisposable` für sauberes Timer-Cleanup
+### Benachrichtigungen (MudBlazor ISnackbar)
+Notifications werden über MudBlazors `ISnackbar`-Service direkt in der Page-Komponente angezeigt:
+- `OnStoreStateChanged` erkennt neue Notifications im Store-State
+- Severity-Mapping: `NotificationSeverity` → MudBlazor `Severity`
+- Deduplizierung über `HashSet<Guid>` (`_shownNotifications`)
+- Nach Anzeige wird `DismissNotification` dispatcht, um die Notification aus dem Store zu entfernen
 
-### Drawer
-Drawer sind reine Eingabekomponenten:
+### Drawer (MudDrawer Variant.Temporary)
+Drawer sind reine Eingabekomponenten und nutzen MudBlazors `MudDrawer` mit `Variant.Temporary`:
 - sammeln Nutzereingaben
 - senden `EventCallback` an Parent-Komponente
 - Parent übersetzt Requests in Actions und dispatcht
@@ -290,10 +291,10 @@ Jede Operation erzeugt einen `OperationContext` mit:
 5. Strukturiertes Logging mit Correlation-ID und Entity-IDs
 
 ### Benachrichtigungen
-- `NotificationPanel`-Komponente rendert `ImmutableList<Notification>` als Toast-Meldungen
+- MudBlazors `ISnackbar`-Service rendert Notifications als Toast-Meldungen
 - Farbkodiert nach Severity (Success: grün, Info: blau, Warning: gelb, Error: rot)
-- Auto-Dismiss nach 5 Sekunden, manuelles Schließen über `DismissNotification`
-- Slide-in-Animation, fixed positioniert (oben rechts)
+- Auto-Dismiss und manuelles Schließen werden von MudBlazor verwaltet
+- `DismissNotification`-Action entfernt die Notification aus dem Store-State
 
 ### YouTube-URL-Validierung
 `ExtractYouTubeId` validiert mehrere URL-Formate:

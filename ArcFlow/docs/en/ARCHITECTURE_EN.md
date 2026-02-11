@@ -35,7 +35,8 @@ Typical layout:
 - `Features/YouTubePlayer/Store/`
     - `YouTubePlayerStore.cs` – owns state, dispatch, reduce, and effects
 - `Features/YouTubePlayer/Components/`
-    - `NotificationPanel.razor` – toast notifications (auto-dismiss, color-coded)
+    - `CreatePlaylistDrawer.razor` – MudDrawer (Temporary) for playlist creation
+    - `AddVideoDrawer.razor` – MudDrawer (Temporary) for adding videos
 - `Features/YouTubePlayer/State/`
     - `YouTubePlayerState.cs` (root state)
     - sub-states (e.g. `PlaylistsState`, `QueueState`, `PlayerState`)
@@ -188,15 +189,15 @@ Allowed local UI state:
 - drawer open flags
 - SortableJS initialization flags
 
-### NotificationPanel (`NotificationPanel.razor`)
-Responsibilities:
-- Renders active notifications from store state as toast messages
-- Manages auto-dismiss timers (5s) via `CancellationTokenSource`
-- Forwards manual close as `DismissNotification` action
-- Implements `IDisposable` for clean timer cleanup
+### Notifications (MudBlazor ISnackbar)
+Notifications are displayed via MudBlazor's `ISnackbar` service directly in the page component:
+- `OnStoreStateChanged` detects new notifications in store state
+- Severity mapping: `NotificationSeverity` → MudBlazor `Severity`
+- Deduplication via `HashSet<Guid>` (`_shownNotifications`)
+- After display, `DismissNotification` is dispatched to remove the notification from the store
 
-### Drawers
-Drawers are input components:
+### Drawers (MudDrawer Variant.Temporary)
+Drawers are input components using MudBlazor's `MudDrawer` with `Variant.Temporary`:
 - collect user input
 - emit `EventCallback` to parent component
 - parent translates requests into actions and dispatches
@@ -291,10 +292,10 @@ Every operation creates an `OperationContext` with:
 5. Structured logging with correlation ID and entity IDs
 
 ### Notifications
-- `NotificationPanel` component renders `ImmutableList<Notification>` as toast messages
+- MudBlazor's `ISnackbar` service renders notifications as toast messages
 - Color-coded by severity (Success: green, Info: blue, Warning: yellow, Error: red)
-- Auto-dismiss after 5 seconds, manual close via `DismissNotification`
-- Slide-in animation, fixed positioned (top right)
+- Auto-dismiss and manual close are managed by MudBlazor
+- `DismissNotification` action removes the notification from store state
 
 ### YouTube URL Validation
 `ExtractYouTubeId` validates multiple URL formats:

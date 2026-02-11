@@ -117,19 +117,20 @@ Exceptions sind für unerwartete Fehler gedacht. Validierungsfehler (z. B. ungü
 
 ---
 
-## ADR-009: Benachrichtigungssystem mit Toast-UI
+## ADR-009: Benachrichtigungssystem mit MudBlazor ISnackbar
 
 **Entscheidung**
-Nutzerfeedback wird über ein zentrales Benachrichtigungssystem im Store-State gesteuert — dargestellt als Toast-Notifications mit automatischem Dismiss.
+Nutzerfeedback wird über ein zentrales Benachrichtigungssystem im Store-State gesteuert — dargestellt über MudBlazors `ISnackbar`-Service.
 
 **Begründung**
-Fehlermeldungen, Warnungen und Erfolgsmeldungen sind UI-State und gehören in den Store. Statt `alert()`-Aufrufe oder komponentenlokale Fehlerzustände wird eine `ImmutableList<Notification>` im `YouTubePlayerState` geführt. Die `NotificationPanel`-Komponente rendert diese als farbkodierte, animierte Toast-Meldungen. Auto-Dismiss (5s) und manuelles Schließen werden über dedizierte Actions gesteuert (`ShowNotification`, `DismissNotification`).
+Fehlermeldungen, Warnungen und Erfolgsmeldungen sind UI-State und gehören in den Store. Statt `alert()`-Aufrufe oder komponentenlokale Fehlerzustände wird eine `ImmutableList<Notification>` im `YouTubePlayerState` geführt. Die Page-Komponente injiziert `ISnackbar` und bridged Store-Notifications zu MudBlazor-Snackbars im `OnStoreStateChanged`-Handler. Deduplizierung erfolgt über `HashSet<Guid>`. Nach der Anzeige wird `DismissNotification` dispatcht, um die Notification aus dem Store zu entfernen. Ursprünglich wurde eine eigene `NotificationPanel`-Komponente mit manuellen Timern und CSS-Animationen verwendet — diese wurde zugunsten der nativen MudBlazor-Lösung entfernt.
 
 **Konsequenzen**
 - Notifications sind Teil des unidirektionalen Datenflusses
 - Keine versteckten UI-Zustände für Fehlermeldungen
 - Severity-Mapping: `Validation`/`NotFound`/`Transient` → Warning, `External`/`Unexpected` → Error
 - Notifications können in Tests über den State verifiziert werden
+- MudBlazor übernimmt Rendering, Animation und Auto-Dismiss — kein eigener Timer-Code nötig
 
 ---
 
@@ -171,3 +172,21 @@ Die Store-Architektur mit immutablem State und reinen Reducern eignet sich ideal
 - History-Limit von 30 Einträgen verhindert Speicherprobleme
 - Neue undoable Actions erfordern nur eine Anpassung in `UndoPolicy.IsUndoable()`
 - Umfassende Testabdeckung (27 Tests) sichert die Korrektheit ab
+
+---
+
+## ADR-012: MudLayout-Migration für Layout und Navigation
+
+**Entscheidung**
+Das gesamte App-Layout wird auf MudBlazors `MudLayout`-System migriert — mit `MudAppBar`, `MudDrawer` (Variant.Mini) für die Sidebar und `MudNavMenu`/`MudNavLink` für die Navigation. Page-Level-Drawers (CreatePlaylist, AddVideo) nutzen `MudDrawer` mit `Variant.Temporary`.
+
+**Begründung**
+Das ursprüngliche Layout basierte auf manueller HTML-Struktur mit eigenem CSS für Sidebar, Navigation und Toggle-Logik. MudBlazors `MudDrawer` mit `Variant.Temporary` benötigt einen `MudLayout`-Kontext, um korrekt zu funktionieren (Positioning, Overlay, Slide-Animation). Statt Workarounds (conditional rendering, `display:none`) wurde das gesamte Layout auf MudLayout migriert. Dies bringt das Projekt in Einklang mit MudBlazor Best Practices und löst gleichzeitig die Drawer-Positionierungsprobleme.
+
+**Konsequenzen**
+- `MainLayout.razor` nutzt `MudLayout`, `MudAppBar`, `MudDrawer`, `MudMainContent`
+- Navigation über `MudNavMenu`/`MudNavLink` mit Material Icons statt manueller SVG-Icons
+- Sidebar: `DrawerVariant.Mini` (60px collapsed, 250px expanded) mit Text-Fading via scoped CSS
+- Page-Level-Drawers: `DrawerVariant.Temporary` mit korrektem Overlay und Slide-Animation
+- `div.app-root`-Wrapper ermöglicht `::deep`-Zugriff auf MudBlazor-interne Klassen
+- Weniger eigener CSS-Code, da MudBlazor Layouting und Responsive-Verhalten übernimmt

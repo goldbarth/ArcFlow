@@ -28,7 +28,7 @@ Das Haupt-Feature kombiniert bewusst mehrere Herausforderungen in einem Feature:
 - **Drag & Drop** — SortableJS mit bewusstem Lifecycle-Handling in Blazor
 - **Persistenz** — Lokale Speicherung über SQLite (EF Core)
 - **Explizites State-Management** — Store-getriebener Datenfluss über Actions, Reducer und Effects
-- **Fehlerbehandlung & Notifications** — Result Pattern mit kategorisierten Fehlern, Toast-Benachrichtigungen und strukturiertem Logging
+- **Fehlerbehandlung & Notifications** — Result Pattern mit kategorisierten Fehlern, MudBlazor-Snackbar-Benachrichtigungen und strukturiertem Logging
 - **Undo/Redo** — Snapshot-basierte Zeitreise für Queue-Aktionen mit Past/Future-Stacks
 
 > Weitere Tools folgen, wenn sie architektonisch etwas Neues einbringen.
@@ -79,6 +79,7 @@ Dieses Projekt zeigt, wie ich an Software-Entwicklung herangehe:
 - UI polieren — Responsiveness, Edge Cases, Micro-Interactions
 
 **Abgeschlossen**
+- ~~MudBlazor-Layout-Migration~~ — Vollständige Migration zu MudLayout (MudAppBar, MudDrawer Mini-Variant, MudNavMenu), Ersetzung der NotificationPanel-Komponente durch MudBlazor ISnackbar
 - ~~Undo/Redo~~ — Snapshot-basierte Zeitreise für Queue-Aktionen (SelectVideo, SortChanged) mit Past/Future-Stacks, UndoPolicy und Effect-Gating
 - ~~Persistenz~~ — SQLite mit EF Core, Domain-Modelle mit Fluent API Mappings
 - ~~Playlist- & Video-Verwaltung~~ — CRUD-Operationen, Auswahl, Queue-Steuerung
@@ -111,8 +112,8 @@ Dieses Projekt zeigt, wie ich an Software-Entwicklung herangehe:
 ```
 ArcFlow/
 ├── Components/             # Wiederverwendbare Blazor-Komponenten
-│   ├── Layout/             # NavMenu, MainLayout
-│   ├── Pages/              # Home, Error, NotFound
+│   ├── Layout/             # MainLayout (MudLayout), NavMenu (MudNavMenu)
+│   ├── Pages/              # Home, Error, NotFound, ComponentTest
 │   └── App.razor           # Root-Komponente
 ├── Data/                   # Datenzugriffsschicht
 │   ├── ApplicationDbContext.cs

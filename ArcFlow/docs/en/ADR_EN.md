@@ -118,19 +118,20 @@ Exceptions are meant for unexpected errors. Validation failures (e.g. invalid Yo
 
 ---
 
-## ADR-009: Notification System with Toast UI
+## ADR-009: Notification System with MudBlazor ISnackbar
 
 **Decision**
-User feedback is managed through a centralized notification system in store state — rendered as toast notifications with auto-dismiss.
+User feedback is managed through a centralized notification system in store state — rendered via MudBlazor's `ISnackbar` service.
 
 **Reasoning**
-Error messages, warnings, and success messages are UI state and belong in the store. Instead of `alert()` calls or component-local error states, an `ImmutableList<Notification>` is maintained in `YouTubePlayerState`. The `NotificationPanel` component renders these as color-coded, animated toast messages. Auto-dismiss (5s) and manual close are controlled via dedicated actions (`ShowNotification`, `DismissNotification`).
+Error messages, warnings, and success messages are UI state and belong in the store. Instead of `alert()` calls or component-local error states, an `ImmutableList<Notification>` is maintained in `YouTubePlayerState`. The page component injects `ISnackbar` and bridges store notifications to MudBlazor snackbars in the `OnStoreStateChanged` handler. Deduplication is done via `HashSet<Guid>`. After display, `DismissNotification` is dispatched to remove the notification from the store. Originally a custom `NotificationPanel` component with manual timers and CSS animations was used — this was removed in favor of the native MudBlazor solution.
 
 **Consequences**
 - Notifications are part of the unidirectional data flow
 - No hidden UI state for error messages
 - Severity mapping: `Validation`/`NotFound`/`Transient` → Warning, `External`/`Unexpected` → Error
 - Notifications can be verified in tests via state inspection
+- MudBlazor handles rendering, animation, and auto-dismiss — no custom timer code needed
 
 ---
 
@@ -172,3 +173,21 @@ The store architecture with immutable state and pure reducers is ideally suited 
 - History limit of 30 entries prevents memory issues
 - New undoable actions only require an update to `UndoPolicy.IsUndoable()`
 - Comprehensive test coverage (27 tests) ensures correctness
+
+---
+
+## ADR-012: MudLayout Migration for Layout and Navigation
+
+**Decision**
+The entire app layout is migrated to MudBlazor's `MudLayout` system — with `MudAppBar`, `MudDrawer` (Variant.Mini) for the sidebar, and `MudNavMenu`/`MudNavLink` for navigation. Page-level drawers (CreatePlaylist, AddVideo) use `MudDrawer` with `Variant.Temporary`.
+
+**Reasoning**
+The original layout was based on manual HTML structure with custom CSS for sidebar, navigation, and toggle logic. MudBlazor's `MudDrawer` with `Variant.Temporary` requires a `MudLayout` context to function correctly (positioning, overlay, slide animation). Instead of workarounds (conditional rendering, `display:none`), the entire layout was migrated to MudLayout. This aligns the project with MudBlazor best practices and simultaneously resolves the drawer positioning issues.
+
+**Consequences**
+- `MainLayout.razor` uses `MudLayout`, `MudAppBar`, `MudDrawer`, `MudMainContent`
+- Navigation via `MudNavMenu`/`MudNavLink` with Material Icons instead of manual SVG icons
+- Sidebar: `DrawerVariant.Mini` (60px collapsed, 250px expanded) with text fading via scoped CSS
+- Page-level drawers: `DrawerVariant.Temporary` with correct overlay and slide animation
+- `div.app-root` wrapper enables `::deep` access to MudBlazor internal classes
+- Less custom CSS code, as MudBlazor handles layout and responsive behavior

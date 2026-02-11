@@ -28,7 +28,7 @@ The main feature deliberately combines several challenges in one:
 - **Drag & Drop** — SortableJS with deliberate lifecycle handling in Blazor
 - **Persistence** — Local storage via SQLite (EF Core)
 - **Explicit State Management** — Store-driven data flow through Actions, Reducers, and Effects
-- **Error Handling & Notifications** — Result pattern with categorized errors, toast notifications, and structured logging
+- **Error Handling & Notifications** — Result pattern with categorized errors, MudBlazor Snackbar notifications, and structured logging
 - **Undo/Redo** — Snapshot-based time travel for queue actions with Past/Future stacks
 
 > More tools will follow when they bring something architecturally new to the table.
@@ -79,6 +79,7 @@ This project shows how I approach software development:
 - Polish UI — responsiveness, edge cases, micro-interactions
 
 **Completed**
+- ~~MudBlazor layout migration~~ — Full migration to MudLayout (MudAppBar, MudDrawer Mini variant, MudNavMenu), replaced NotificationPanel with MudBlazor ISnackbar
 - ~~Undo/Redo~~ — Snapshot-based time travel for queue actions (SelectVideo, SortChanged) with Past/Future stacks, UndoPolicy, and effect gating
 - ~~Persistence~~ — SQLite with EF Core, domain models with Fluent API mappings
 - ~~Playlist & video management~~ — CRUD operations, selection, queue control
@@ -111,8 +112,8 @@ This project shows how I approach software development:
 ```
 ArcFlow/
 ├── Components/             # Reusable Blazor components
-│   ├── Layout/             # NavMenu, MainLayout
-│   ├── Pages/              # Home, Error, NotFound
+│   ├── Layout/             # MainLayout (MudLayout), NavMenu (MudNavMenu)
+│   ├── Pages/              # Home, Error, NotFound, ComponentTest
 │   └── App.razor           # Root component
 ├── Data/                   # Data access layer
 │   ├── ApplicationDbContext.cs
