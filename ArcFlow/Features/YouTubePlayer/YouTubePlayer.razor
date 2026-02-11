@@ -1,6 +1,7 @@
 @page "/youtube"
 @inject IJSRuntime JS
 @inject YouTubePlayerStore Store
+@inject ISnackbar Snackbar
 @using ArcFlow.Features.YouTubePlayer.State
 @using ArcFlow.Features.YouTubePlayer.Store
 @implements IAsyncDisposable
@@ -11,10 +12,6 @@
 <AddVideoDrawer @bind-Open="_addVideoDrawerOpen"
                 SelectedPlaylistId="SelectedPlaylistId"
                 OnSubmit="OnAddVideoSubmit" />
-
-<NotificationPanel Notifications="@State.Notifications"
-                   OnDismiss="@(async (correlationId) => await Store.Dispatch(new YtAction.DismissNotification(correlationId)))" />
-
 
 <h3>YouTube Player</h3>
 
@@ -168,6 +165,8 @@
     private bool _createPlaylistDrawerOpen;
     private bool _addVideoDrawerOpen;
     private bool _sortableInitialized;
+    
+    private readonly HashSet<Guid> _shownNotifications = [];
 
     private YouTubePlayerState State => Store?.State ?? new YouTubePlayerState();
     
@@ -193,6 +192,7 @@
 
     private bool CanUndo => State.Queue.CanUndo;
     private bool CanRedo => State.Queue.CanRedo;
+    
     private Task Undo() => Store?.Dispatch(new YtAction.UndoRequested()) ?? Task.CompletedTask;
     private Task Redo() => Store?.Dispatch(new YtAction.RedoRequested()) ?? Task.CompletedTask;
 
@@ -207,6 +207,22 @@
     
     private void OnStoreStateChanged(YouTubePlayerState newState)
     {
+        foreach (var notification in newState.Notifications)
+        {
+            if (!_shownNotifications.Add(notification.CorrelationId)) continue;
+
+            var severity = notification.Severity switch
+            {
+                NotificationSeverity.Success => Severity.Success,
+                NotificationSeverity.Warning => Severity.Warning,
+                NotificationSeverity.Error => Severity.Error,
+                _ => Severity.Info
+            };
+
+            Snackbar.Add(notification.Message, severity);
+            _ = Store.Dispatch(new YtAction.DismissNotification(notification.CorrelationId));
+        }
+
         _ = InvokeAsync(StateHasChanged);
     }
 

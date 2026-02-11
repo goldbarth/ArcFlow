@@ -1,0 +1,395 @@
+@page "/test"
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Component Test</PageTitle>
+
+<h3>MudBlazor Component Test</h3>
+
+<MudExpansionPanels MultiExpansion="true" Class="mt-4">
+
+    @* ───────── Buttons & Actions ───────── *@
+    <MudExpansionPanel Text="Buttons &amp; Actions">
+
+        <MudText Typo="Typo.h6" Class="mb-2">MudButton Variants</MudText>
+        <div class="d-flex flex-wrap gap-2 mb-4">
+            <MudButton Variant="Variant.Text" Color="Color.Primary">Text</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary">Filled</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary">Outlined</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Secondary">Secondary</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Success">Success</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Warning">Warning</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Error">Error</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Info">Info</MudButton>
+        </div>
+
+        <MudText Typo="Typo.h6" Class="mb-2">Button Sizes</MudText>
+        <div class="d-flex flex-wrap gap-2 align-center mb-4">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small">Small</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Medium">Medium</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large">Large</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="true">Disabled</MudButton>
+        </div>
+
+        <MudText Typo="Typo.h6" Class="mb-2">Icon Buttons</MudText>
+        <div class="d-flex flex-wrap gap-2 mb-4">
+            <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" />
+            <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" />
+            <MudIconButton Icon="@Icons.Material.Filled.Favorite" Color="Color.Secondary" />
+            <MudIconButton Icon="@Icons.Material.Filled.Settings" Color="Color.Default" />
+        </div>
+
+        <MudText Typo="Typo.h6" Class="mb-2">FAB</MudText>
+        <div class="d-flex flex-wrap gap-2 mb-4">
+            <MudFab Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" />
+            <MudFab Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Edit" Label="Edit" />
+        </div>
+
+        <MudText Typo="Typo.h6" Class="mb-2">Button Group</MudText>
+        <MudButtonGroup Color="Color.Primary" Variant="Variant.Outlined">
+            <MudButton>One</MudButton>
+            <MudButton>Two</MudButton>
+            <MudButton>Three</MudButton>
+        </MudButtonGroup>
+
+    </MudExpansionPanel>
+
+    @* ───────── Inputs & Forms ───────── *@
+    <MudExpansionPanel Text="Inputs &amp; Forms">
+
+        <MudGrid>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_textValue" Label="Text Field" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_passwordValue" Label="Password" InputType="InputType.Password" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_multilineValue" Label="Multiline" Lines="3" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudNumericField @bind-Value="_numericValue" Label="Numeric Field" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudSelect @bind-Value="_selectValue" Label="Select" Variant="Variant.Outlined">
+                    <MudSelectItem Value="@("Option A")">Option A</MudSelectItem>
+                    <MudSelectItem Value="@("Option B")">Option B</MudSelectItem>
+                    <MudSelectItem Value="@("Option C")">Option C</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudAutocomplete T="string" @bind-Value="_autocompleteValue" Label="Autocomplete"
+                                 SearchFunc="SearchCountries" Variant="Variant.Outlined" />
+            </MudItem>
+        </MudGrid>
+
+        <MudDivider Class="my-4" />
+
+        <MudText Typo="Typo.h6" Class="mb-2">Toggles</MudText>
+        <div class="d-flex flex-wrap gap-4 align-center mb-4">
+            <MudCheckBox @bind-Value="_checkboxValue" Label="Checkbox" Color="Color.Primary" />
+            <MudSwitch @bind-Value="_switchValue" Label="Switch" Color="Color.Primary" />
+        </div>
+
+        <MudRadioGroup @bind-Value="_radioValue">
+            <MudRadio Value="@("Radio 1")" Color="Color.Primary">Radio 1</MudRadio>
+            <MudRadio Value="@("Radio 2")" Color="Color.Primary">Radio 2</MudRadio>
+            <MudRadio Value="@("Radio 3")" Color="Color.Primary">Radio 3</MudRadio>
+        </MudRadioGroup>
+
+        <MudDivider Class="my-4" />
+
+        <MudText Typo="Typo.h6" Class="mb-2">Slider</MudText>
+        <MudSlider @bind-Value="_sliderValue" Min="0" Max="100" Step="1" Color="Color.Primary">
+            Value: @_sliderValue
+        </MudSlider>
+
+        <MudDivider Class="my-4" />
+
+        <MudText Typo="Typo.h6" Class="mb-2">Date &amp; Time</MudText>
+        <MudGrid>
+            <MudItem xs="12" sm="6">
+                <MudDatePicker @bind-Date="_dateValue" Label="Date Picker" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTimePicker @bind-Time="_timeValue" Label="Time Picker" Variant="Variant.Outlined" />
+            </MudItem>
+        </MudGrid>
+
+        <MudDivider Class="my-4" />
+
+        <MudText Typo="Typo.h6" Class="mb-2">Rating</MudText>
+        <MudRating @bind-SelectedValue="_ratingValue" />
+
+    </MudExpansionPanel>
+
+    @* ───────── Data Display ───────── *@
+    <MudExpansionPanel Text="Data Display">
+
+        <MudText Typo="Typo.h6" Class="mb-2">Table</MudText>
+        <MudTable Items="@_tableItems" Hover="true" Striped="true" Dense="true" Class="mb-4">
+            <HeaderContent>
+                <MudTh>Id</MudTh>
+                <MudTh>Name</MudTh>
+                <MudTh>Age</MudTh>
+                <MudTh>Role</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Id">@context.Id</MudTd>
+                <MudTd DataLabel="Name">@context.Name</MudTd>
+                <MudTd DataLabel="Age">@context.Age</MudTd>
+                <MudTd DataLabel="Role">@context.Role</MudTd>
+            </RowTemplate>
+            <PagerContent>
+                <MudTablePager />
+            </PagerContent>
+        </MudTable>
+
+        <MudText Typo="Typo.h6" Class="mb-2">Simple Table</MudText>
+        <MudSimpleTable Style="overflow-x: auto;" Class="mb-4">
+            <thead>
+                <tr>
+                    <th>Column A</th>
+                    <th>Column B</th>
+                    <th>Column C</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>Row 1A</td><td>Row 1B</td><td>Row 1C</td></tr>
+                <tr><td>Row 2A</td><td>Row 2B</td><td>Row 2C</td></tr>
+            </tbody>
+        </MudSimpleTable>
+
+        <MudText Typo="Typo.h6" Class="mb-2">Chips</MudText>
+        <MudChipSet T="string" Class="mb-4">
+            <MudChip T="string" Color="Color.Primary">Primary</MudChip>
+            <MudChip T="string" Color="Color.Secondary">Secondary</MudChip>
+            <MudChip T="string" Color="Color.Success">Success</MudChip>
+            <MudChip T="string" Color="Color.Warning">Warning</MudChip>
+            <MudChip T="string" Color="Color.Error">Error</MudChip>
+            <MudChip T="string" Color="Color.Info">Info</MudChip>
+        </MudChipSet>
+
+        <MudText Typo="Typo.h6" Class="mb-2">Badges</MudText>
+        <div class="d-flex flex-wrap gap-4 mb-4">
+            <MudBadge Content="3" Color="Color.Primary" Overlap="true">
+                <MudIcon Icon="@Icons.Material.Filled.Email" />
+            </MudBadge>
+            <MudBadge Content="@("99+")" Color="Color.Error" Overlap="true">
+                <MudIcon Icon="@Icons.Material.Filled.Notifications" />
+            </MudBadge>
+            <MudBadge Dot="true" Color="Color.Success" Overlap="true">
+                <MudAvatar Color="Color.Primary">U</MudAvatar>
+            </MudBadge>
+        </div>
+
+        <MudText Typo="Typo.h6" Class="mb-2">Avatars</MudText>
+        <div class="d-flex flex-wrap gap-2 mb-4">
+            <MudAvatar Color="Color.Primary">A</MudAvatar>
+            <MudAvatar Color="Color.Secondary">B</MudAvatar>
+            <MudAvatar Color="Color.Success">C</MudAvatar>
+            <MudAvatar Color="Color.Info" Variant="Variant.Outlined">D</MudAvatar>
+        </div>
+
+        <MudText Typo="Typo.h6" Class="mb-2">Alerts</MudText>
+        <div class="d-flex flex-column gap-2 mb-4">
+            <MudAlert Severity="Severity.Normal">Normal alert</MudAlert>
+            <MudAlert Severity="Severity.Info">Info alert</MudAlert>
+            <MudAlert Severity="Severity.Success">Success alert</MudAlert>
+            <MudAlert Severity="Severity.Warning">Warning alert</MudAlert>
+            <MudAlert Severity="Severity.Error">Error alert</MudAlert>
+        </div>
+
+        <MudText Typo="Typo.h6" Class="mb-2">Progress</MudText>
+        <MudProgressLinear Color="Color.Primary" Value="65" Class="mb-2" />
+        <MudProgressLinear Color="Color.Secondary" Indeterminate="true" Class="mb-4" />
+        <div class="d-flex gap-4">
+            <MudProgressCircular Color="Color.Primary" Value="75" />
+            <MudProgressCircular Color="Color.Secondary" Indeterminate="true" />
+        </div>
+
+    </MudExpansionPanel>
+
+    @* ───────── Layout & Container ───────── *@
+    <MudExpansionPanel Text="Layout &amp; Container">
+
+        <MudText Typo="Typo.h6" Class="mb-2">Card</MudText>
+        <MudCard Class="mb-4">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">Card Title</MudText>
+                </CardHeaderContent>
+                <CardHeaderActions>
+                    <MudIconButton Icon="@Icons.Material.Filled.MoreVert" />
+                </CardHeaderActions>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudText>This is a sample card with header, content, and action areas.</MudText>
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton Variant="Variant.Text" Color="Color.Primary">Action 1</MudButton>
+                <MudButton Variant="Variant.Text" Color="Color.Primary">Action 2</MudButton>
+            </MudCardActions>
+        </MudCard>
+
+        <MudText Typo="Typo.h6" Class="mb-2">Paper</MudText>
+        <MudGrid Class="mb-4">
+            <MudItem xs="4">
+                <MudPaper Class="pa-4" Elevation="0">Elevation 0</MudPaper>
+            </MudItem>
+            <MudItem xs="4">
+                <MudPaper Class="pa-4" Elevation="1">Elevation 1</MudPaper>
+            </MudItem>
+            <MudItem xs="4">
+                <MudPaper Class="pa-4" Elevation="4">Elevation 4</MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudText Typo="Typo.h6" Class="mb-2">Tabs</MudText>
+        <MudTabs Elevation="2" Rounded="true" Class="mb-4">
+            <MudTabPanel Text="Tab One">
+                <MudText Class="pa-4">Content of Tab One</MudText>
+            </MudTabPanel>
+            <MudTabPanel Text="Tab Two">
+                <MudText Class="pa-4">Content of Tab Two</MudText>
+            </MudTabPanel>
+            <MudTabPanel Text="Tab Three">
+                <MudText Class="pa-4">Content of Tab Three</MudText>
+            </MudTabPanel>
+        </MudTabs>
+
+        <MudText Typo="Typo.h6" Class="mb-2">Nested Expansion Panels</MudText>
+        <MudExpansionPanels Class="mb-4">
+            <MudExpansionPanel Text="Nested Panel 1">
+                <MudText>Content of nested panel 1</MudText>
+            </MudExpansionPanel>
+            <MudExpansionPanel Text="Nested Panel 2">
+                <MudText>Content of nested panel 2</MudText>
+            </MudExpansionPanel>
+        </MudExpansionPanels>
+
+        <MudDivider Class="my-4" />
+
+        <MudText Typo="Typo.h6" Class="mb-2">Grid Layout</MudText>
+        <MudGrid>
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-4 d-flex justify-center" Style="background-color: var(--mud-palette-primary); color: white;">
+                    xs=12 sm=6 md=3
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-4 d-flex justify-center" Style="background-color: var(--mud-palette-secondary); color: white;">
+                    xs=12 sm=6 md=3
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-4 d-flex justify-center" Style="background-color: var(--mud-palette-info); color: white;">
+                    xs=12 sm=6 md=3
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Class="pa-4 d-flex justify-center" Style="background-color: var(--mud-palette-success); color: white;">
+                    xs=12 sm=6 md=3
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+    </MudExpansionPanel>
+
+    @* ───────── Feedback & Overlays ───────── *@
+    <MudExpansionPanel Text="Feedback &amp; Overlays">
+
+        <MudText Typo="Typo.h6" Class="mb-2">Dialog</MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenDialog" Class="mb-4">
+            Open Dialog
+        </MudButton>
+
+        <MudText Typo="Typo.h6" Class="mb-2">Snackbar</MudText>
+        <div class="d-flex flex-wrap gap-2 mb-4">
+            <MudButton Variant="Variant.Filled" Color="Color.Info" OnClick="@(() => ShowSnackbar(Severity.Info))">Info Snackbar</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="@(() => ShowSnackbar(Severity.Success))">Success Snackbar</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Warning" OnClick="@(() => ShowSnackbar(Severity.Warning))">Warning Snackbar</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="@(() => ShowSnackbar(Severity.Error))">Error Snackbar</MudButton>
+        </div>
+
+        <MudText Typo="Typo.h6" Class="mb-2">Tooltips</MudText>
+        <div class="d-flex flex-wrap gap-2 mb-4">
+            <MudTooltip Text="This is a tooltip">
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary">Hover me</MudButton>
+            </MudTooltip>
+            <MudTooltip Text="Arrow tooltip" Arrow="true" Placement="Placement.Top">
+                <MudChip T="string" Color="Color.Secondary">With Arrow</MudChip>
+            </MudTooltip>
+        </div>
+
+        <MudText Typo="Typo.h6" Class="mb-2">Menu</MudText>
+        <MudMenu Label="Open Menu" Variant="Variant.Filled" Color="Color.Primary">
+            <MudMenuItem>Menu Item 1</MudMenuItem>
+            <MudMenuItem>Menu Item 2</MudMenuItem>
+            <MudMenuItem>Menu Item 3</MudMenuItem>
+        </MudMenu>
+
+    </MudExpansionPanel>
+
+</MudExpansionPanels>
+
+@code {
+    // ── Inputs & Forms state ──
+    private string _textValue = "";
+    private string _passwordValue = "";
+    private string _multilineValue = "";
+    private int _numericValue;
+    private string _selectValue = "Option A";
+    private string _autocompleteValue = "";
+    private bool _checkboxValue;
+    private bool _switchValue;
+    private string _radioValue = "Radio 1";
+    private int _sliderValue = 50;
+    private DateTime? _dateValue = DateTime.Today;
+    private TimeSpan? _timeValue = new TimeSpan(12, 0, 0);
+    private int _ratingValue = 3;
+
+    // ── Table data ──
+    private record TableItem(int Id, string Name, int Age, string Role);
+
+    private readonly List<TableItem> _tableItems =
+    [
+        new(1, "Alice", 28, "Developer"),
+        new(2, "Bob", 34, "Designer"),
+        new(3, "Charlie", 23, "Tester"),
+        new(4, "Diana", 31, "Manager"),
+        new(5, "Eve", 26, "DevOps")
+    ];
+
+    // ── Autocomplete ──
+    private static readonly string[] Countries = { "Germany", "Austria", "Switzerland", "France", "Italy", "Spain", "United Kingdom", "United States" };
+
+    private Task<IEnumerable<string>> SearchCountries(string value, CancellationToken token)
+    {
+        if (string.IsNullOrEmpty(value))
+            return Task.FromResult<IEnumerable<string>>(Countries);
+
+        return Task.FromResult<IEnumerable<string>>(
+            Countries.Where(c => c.Contains(value, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    // ── Dialog ──
+    private async Task OpenDialog()
+    {
+        var parameters = new DialogParameters<SimpleTestDialog>
+        {
+            { x => x.ContentText, "This is a test dialog. Do you want to proceed?" }
+        };
+        var dialog = await DialogService.ShowAsync<SimpleTestDialog>("Test Dialog", parameters);
+        var result = await dialog.Result;
+
+        if (result is { Canceled: false })
+            Snackbar.Add("Dialog confirmed!", Severity.Success);
+    }
+
+    // ── Snackbar ──
+    private void ShowSnackbar(Severity severity)
+    {
+        Snackbar.Add($"This is a {severity} snackbar message.", severity);
+    }
+}

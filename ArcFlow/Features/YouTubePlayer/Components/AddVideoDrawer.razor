@@ -1,26 +1,21 @@
-﻿@using ArcFlow.Features.YouTubePlayer.State
+@using ArcFlow.Features.YouTubePlayer.State
 
-@inject IPlaylistService PlaylistService
-
-@if (Open)
-{
-    <div class="drawer-overlay" @onclick="Cancel"></div>
-}
-
-<div class="drawer-panel @(Open ? "open" : "")">
-    <div class="drawer-header">
+<MudDrawer Open="Open" OpenChanged="OnOpenChanged" Anchor="Anchor.End"
+           Variant="@DrawerVariant.Temporary" Width="320px" Elevation="4">
+    <MudDrawerHeader>
         <MudText Typo="Typo.h6">Video zur Playlist hinzufügen</MudText>
-    </div>
-    <div class="drawer-content">
+    </MudDrawerHeader>
+    <div class="pa-4">
         <MudTextField @bind-Value="_title"
                       Label="Titel"
                       Required="true"
-                      RequiredError="Titel ist erforderlich"/>
+                      RequiredError="Titel ist erforderlich" />
         <MudTextField @bind-Value="_videoUrl"
                       Label="YouTube URL"
                       Required="true"
                       RequiredError="YouTube URL ist erforderlich"
-                      Placeholder="https://www.youtube.com/watch?v=..."/>
+                      Placeholder="https://www.youtube.com/watch?v=..."
+                      Class="mt-3" />
         <div class="d-flex justify-end gap-2 mt-4">
             <MudButton OnClick="Cancel" Color="Color.Default">Abbrechen</MudButton>
             <MudButton OnClick="Submit"
@@ -30,18 +25,25 @@
             </MudButton>
         </div>
     </div>
-</div>
+</MudDrawer>
 
 @code {
     [Parameter] public bool Open { get; set; }
     [Parameter] public EventCallback<bool> OpenChanged { get; set; }
     [Parameter] public Guid? SelectedPlaylistId { get; set; }
     [Parameter] public EventCallback<AddVideoRequest> OnSubmit { get; set; }
-    
+
     public sealed record AddVideoRequest(Guid PlaylistId, string Url, string Title);
-    
+
     private string _videoUrl = string.Empty;
     private string _title = string.Empty;
+
+    private async Task OnOpenChanged(bool open)
+    {
+        if (!open) ResetForm();
+        Open = open;
+        await OpenChanged.InvokeAsync(open);
+    }
 
     private async Task Submit()
     {
@@ -49,20 +51,16 @@
         if (string.IsNullOrWhiteSpace(_videoUrl)) return;
 
         await OnSubmit.InvokeAsync(new AddVideoRequest(SelectedPlaylistId.Value, _videoUrl, _title));
-        await Close();
-        ResetForm();
+        await CloseDrawer();
     }
 
-    private async Task Close()
+    private async Task Cancel() => await CloseDrawer();
+
+    private async Task CloseDrawer()
     {
+        ResetForm();
         Open = false;
-        await OpenChanged.InvokeAsync(Open);
-    }
-
-    private void Cancel()
-    {
-        ResetForm();
-        _ = Close();
+        await OpenChanged.InvokeAsync(false);
     }
 
     private void ResetForm()
