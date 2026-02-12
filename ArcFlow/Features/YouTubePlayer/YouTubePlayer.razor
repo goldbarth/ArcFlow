@@ -1,10 +1,4 @@
 @page "/youtube"
-@inject IJSRuntime JS
-@inject YouTubePlayerStore Store
-@inject ISnackbar Snackbar
-@using ArcFlow.Features.YouTubePlayer.State
-@using ArcFlow.Features.YouTubePlayer.Store
-@implements IAsyncDisposable
 
 <CreatePlaylistDrawer @bind-Open="_createPlaylistDrawerOpen"
                       OnSubmit="OnCreatePlaylistSubmit" />
@@ -13,17 +7,31 @@
                 SelectedPlaylistId="SelectedPlaylistId"
                 OnSubmit="OnAddVideoSubmit" />
 
-<h3>YouTube Player</h3>
+<PageTitle>YouTube Player</PageTitle>
+
+<MudText Typo="Typo.h4" Align="Align.Left" Class="mt-4 mb-2"
+         Style="color: white;">YouTube Player</MudText>
+
+<ImportExportToolbar State="State"
+                     OnExportClick="OnExportClick"
+                     OnImportClick="OpenImportDrawer"
+                     OnPersistRetryClick="OnPersistRetry" />
+
+<ImportDrawer @bind-Open="_importDrawerOpen"
+              ImportExportState="State.ImportExport"
+              OnSubmit="OnImportSubmit" />
 
 <div class="youtube-player-container">
     <div class="playlist-overview">
-        <h4>Playlists</h4>
+        <MudText Typo="Typo.h5" Align="Align.Left" Class="mb-2"
+                                   Style="color: black; font-style: italic">Playlists</MudText>
         @if (!Playlists.Any())
         {
-            <p>No playlists available</p>
+            <MudText Typo="Typo.body2" Align="Align.Left"
+                     Style="color: black;">No playlists available</MudText>
             <MudButton StartIcon="@Icons.Material.Filled.Add"
                        Size="Size.Small"
-                       Color="Color.Primary"
+                       Color="Color.Dark"
                        OnClick="OpenDrawer">
                 New Playlist
             </MudButton>
@@ -39,15 +47,17 @@
                                  OnClick="@(async () =>
                         await Store.Dispatch(new YtAction.SelectPlaylist(currentPlaylist.Id)))">
                         <div class="playlist-item">
-                            <strong>@currentPlaylist.Name</strong>
-                            <span class="video-count">(@currentPlaylist.VideoItems.Count Videos)</span>
+                            <MudText Typo="Typo.body1" Align="Align.Left"
+                                     Style="color: black;">@currentPlaylist.Name</MudText>
+                            <MudText Typo="Typo.caption" Align="Align.Left"
+                                     Style="color: gray;">(@currentPlaylist.VideoItems.Count Videos)</MudText>
                         </div>
                     </MudListItem>
                 }
             </MudList>
             <MudButton StartIcon="@Icons.Material.Filled.Add"
                        Size="Size.Small"
-                       Color="Color.Primary"
+                       Color="Color.Dark"
                        OnClick="OpenDrawer">
                 New Playlist
             </MudButton>
@@ -61,7 +71,8 @@
             @if (State.Player is PlayerState.Empty)
             {
                 <div class="no-video">
-                    <p>Select a playlist and a video</p>
+                    <MudText Typo="Typo.body2" Align="Align.Left"
+                             Style="color: black;">Select a playlist</MudText>
                 </div>
             }
         </div>
@@ -70,27 +81,27 @@
             <div class="player-controls">
                 <MudIconButton Icon="@Icons.Material.Filled.Shuffle"
                                Size="Size.Medium"
-                               Color="@(IsShuffleEnabled ? Color.Primary : Color.Default)"
+                               Color="@(IsShuffleEnabled ? Color.Dark : Color.Default)"
                                OnClick="ToggleShuffle"/>
                 <MudIconButton Icon="@Icons.Material.Filled.SkipPrevious"
                                Size="Size.Large"
-                               Color="Color.Primary"
+                               Color="Color.Dark"
                                OnClick="PlayPrevious"
                                Disabled="!CanPlayPrevious"/>
                 <MudIconButton Icon="@(IsPlaying
                                          ? Icons.Material.Filled.Pause
                                          : Icons.Material.Filled.PlayArrow)"
                                Size="Size.Large"
-                               Color="Color.Primary"
+                               Color="Color.Dark"
                                OnClick="TogglePlayPause"/>
                 <MudIconButton Icon="@Icons.Material.Filled.SkipNext"
                                Size="Size.Large"
-                               Color="Color.Primary"
+                               Color="Color.Dark"
                                OnClick="PlayNext"
                                Disabled="!CanPlayNext"/>
                 <MudIconButton Icon="@RepeatIcon"
                                Size="Size.Medium"
-                               Color="@(CurrentRepeatMode != RepeatMode.Off ? Color.Primary : Color.Default)"
+                               Color="@(CurrentRepeatMode != RepeatMode.Off ? Color.Dark : Color.Default)"
                                OnClick="CycleRepeat"/>
             </div>
         }
@@ -98,10 +109,11 @@
 
     <div class="current-playlist">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h4>@(SelectedPlaylistName)</h4>
+            <MudText Typo="Typo.h5" Align="Align.Left" Class="mb-2"
+                     Style="color: black; font-style: italic">@(SelectedPlaylistName)</MudText>
             <div>
-                <MudIconButton Icon="@Icons.Material.Filled.Undo" OnClick="Undo" Disabled="!CanUndo" Size="Size.Small" />
-                <MudIconButton Icon="@Icons.Material.Filled.Redo" OnClick="Redo" Disabled="!CanRedo" Size="Size.Small" />
+                <MudIconButton Icon="@Icons.Material.Filled.Undo" OnClick="Undo" Disabled="!CanUndo" Size="Size.Small"/>
+                <MudIconButton Icon="@Icons.Material.Filled.Redo" OnClick="Redo" Disabled="!CanRedo" Size="Size.Small"/>
             </div>
         </div>
         @if (Videos.Any())
@@ -133,7 +145,8 @@
                                                  Size="Size.Small"
                                                  Class="now-playing-icon"/>
                                     }
-                                    <strong>@video.Title</strong>
+                                    <MudText Typo="Typo.body1" Align="Align.Left"
+                                             Style="color: black;">@video.Title</MudText>
                                 </div>
                                 @if (video.Duration.HasValue)
                                 {
@@ -146,17 +159,18 @@
             </div>
             <MudButton StartIcon="@Icons.Material.Filled.Add"
                        Size="Size.Small"
-                       Color="Color.Primary"
+                       Color="Color.Dark"
                        OnClick="OpenAddVideoDrawer">
                 Add Video
             </MudButton>
         }
         else if (SelectedPlaylistId != null)
         {
-            <p>No videos in this playlist</p>
+            <MudText Typo="Typo.body2" Align="Align.Left"
+                     Style="color: black;">No videos in this playlist</MudText>
             <MudButton StartIcon="@Icons.Material.Filled.Add"
                        Size="Size.Small"
-                       Color="Color.Primary"
+                       Color="Color.Dark"
                        OnClick="OpenAddVideoDrawer">
                 Add Video
             </MudButton>
