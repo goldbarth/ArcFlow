@@ -31,6 +31,9 @@ public enum NotificationSeverity
     Error
 }
 
+/// <summary>
+/// Maps <see cref="ErrorCategory"/> to <see cref="NotificationSeverity"/> for UI display.
+/// </summary>
 public static class ErrorCategoryExtensions
 {
     public static NotificationSeverity ToSeverity(this ErrorCategory category)

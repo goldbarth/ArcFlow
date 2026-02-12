@@ -3,6 +3,10 @@ using ArcFlow.Features.YouTubePlayer.Models;
 
 namespace ArcFlow.Features.YouTubePlayer.State;
 
+/// <summary>
+/// Central state for the video queue: selected playlist, video list, current playback position,
+/// shuffle/repeat settings, and undo/redo history stacks.
+/// </summary>
 public record QueueState
 {
     public const int HistoryLimit = 30;

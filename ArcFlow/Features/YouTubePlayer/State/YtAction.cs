@@ -3,47 +3,93 @@ using ArcFlow.Features.YouTubePlayer.Models;
 
 namespace ArcFlow.Features.YouTubePlayer.State;
 
+/// <summary>
+/// Discriminated union of all actions that can be dispatched to the YouTube Player store.
+/// Grouped by concern: lifecycle, user commands, interop events, error handling,
+/// notifications, playback navigation, and undo/redo.
+/// </summary>
 public record YtAction
 {
     public ActionOrigin Origin { get; init; } = ActionOrigin.User;
 
-    // App/Feature lifecycle
+    // ── Lifecycle ────────────────────────────────────────────────
+
+    /// <summary>Bootstraps the feature: loads playlists from the database.</summary>
     public sealed record Initialize : YtAction;
-    // Data loaded (results)
+
+    // ── Data loaded (results from side effects) ─────────────────
+
+    /// <summary>All playlists were fetched from the database.</summary>
     public sealed record PlaylistsLoaded(ImmutableList<Playlist> Playlists) : YtAction;
+
+    /// <summary>A single playlist (with its videos) was loaded.</summary>
     public sealed record PlaylistLoaded(Playlist Playlist) : YtAction;
-    
-    // User intent (commands)
+
+    // ── User commands ───────────────────────────────────────────
+
+    /// <summary>User wants to create a new playlist.</summary>
     public sealed record CreatePlaylist(string Name, string? Description) : YtAction;
+
+    /// <summary>User wants to add a video to a playlist by URL.</summary>
     public sealed record AddVideo(Guid PlaylistId, string Url, string Title) : YtAction;
-    
+
+    /// <summary>User selected a playlist to view/play.</summary>
     public sealed record SelectPlaylist(Guid PlaylistId) : YtAction;
+
+    /// <summary>User clicked a specific video in the queue.</summary>
     public sealed record SelectVideo(int Index, bool Autoplay) : YtAction;
 
+    /// <summary>User reordered a video via drag-and-drop.</summary>
     public sealed record SortChanged(int OldIndex, int NewIndex) : YtAction;
-    
-    // Interop events
-    public sealed record PlayerStateChanged(int YtState, string VideoId) : YtAction;
-    public sealed record VideoEnded : YtAction;
-    
-    // Error handling
-    public sealed record OperationFailed(OperationError Error) : YtAction;
-    
-    // Notifications
-    public sealed record ShowNotification(Notification Notification) : YtAction;
-    public sealed record DismissNotification(Guid CorrelationId) : YtAction;
 
-    // Playback navigation (user intent)
+    // ── JS interop events ───────────────────────────────────────
+
+    /// <summary>YouTube IFrame API reported a player state change (playing, paused, buffering, etc.).</summary>
+    public sealed record PlayerStateChanged(int YtState, string VideoId) : YtAction;
+
+    /// <summary>The current video finished playing.</summary>
+    public sealed record VideoEnded : YtAction;
+
+    // ── Playback navigation (user intent) ───────────────────────
+
+    /// <summary>Toggle shuffle mode on/off, optionally with a specific seed for deterministic ordering.</summary>
     public sealed record ShuffleSet(bool Enabled, int? Seed = null) : YtAction;
+
+    /// <summary>Set the repeat mode (Off, All, One).</summary>
     public sealed record RepeatSet(RepeatMode Mode) : YtAction;
+
+    /// <summary>User pressed "next track".</summary>
     public sealed record NextRequested : YtAction;
+
+    /// <summary>User pressed "previous track".</summary>
     public sealed record PrevRequested : YtAction;
 
-    // Playback navigation (result)
+    // ── Playback navigation (computed results) ──────────────────
+
+    /// <summary>Playback was advanced to a new video (result of Next/Prev/AutoAdvance).</summary>
     public sealed record PlaybackAdvanced(Guid ToItemId, AdvanceReason Reason) : YtAction;
+
+    /// <summary>Playback was stopped because the queue ended or was empty.</summary>
     public sealed record PlaybackStopped(StopReason Reason) : YtAction;
 
-    // Undo/Redo
+    // ── Undo / Redo ─────────────────────────────────────────────
+
+    /// <summary>User triggered undo — restores the previous queue snapshot.</summary>
     public sealed record UndoRequested : YtAction;
+
+    /// <summary>User triggered redo — re-applies a previously undone queue snapshot.</summary>
     public sealed record RedoRequested : YtAction;
+    
+    // ── Error handling ──────────────────────────────────────────
+
+    /// <summary>A store operation failed — triggers notification and stores the error.</summary>
+    public sealed record OperationFailed(OperationError Error) : YtAction;
+
+    // ── Notifications ───────────────────────────────────────────
+
+    /// <summary>Display a notification to the user via snackbar.</summary>
+    public sealed record ShowNotification(Notification Notification) : YtAction;
+
+    /// <summary>Remove a notification after the user dismissed it.</summary>
+    public sealed record DismissNotification(Guid CorrelationId) : YtAction;
 }

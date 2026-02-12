@@ -3,6 +3,11 @@ using ArcFlow.Features.YouTubePlayer.Models;
 
 namespace ArcFlow.Features.YouTubePlayer.State;
 
+/// <summary>
+/// Pure functions for computing next/previous video, shuffle order generation,
+/// and queue repair after mutations. Contains no side effects — all state changes
+/// are returned as new <see cref="QueueState"/> instances.
+/// </summary>
 internal static class PlaybackNavigation
 {
     /// <summary>
@@ -195,6 +200,10 @@ internal static class PlaybackNavigation
     }
 }
 
+/// <summary>
+/// Adds a LINQ-style <c>FindIndex</c> to <see cref="System.Collections.Immutable.ImmutableList{T}"/>
+/// which is missing from the standard library.
+/// </summary>
 internal static class ImmutableListExtensions
 {
     public static int FindIndex<T>(this ImmutableList<T> list, Func<T, bool> predicate)

@@ -27,7 +27,7 @@ public record OperationContext(
 }
 
 /// <summary>
-/// Error categories matching the pattern from your requirements
+/// Classifies errors by origin and recoverability to drive UI feedback and retry logic.
 /// </summary>
 public enum ErrorCategory
 {

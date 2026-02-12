@@ -3,6 +3,10 @@ using ArcFlow.Features.YouTubePlayer.Models;
 
 namespace ArcFlow.Features.YouTubePlayer.State;
 
+/// <summary>
+/// Immutable snapshot of a <see cref="QueueState"/> used as an undo/redo checkpoint.
+/// Captures all queue properties including video positions so state can be fully restored.
+/// </summary>
 public sealed record QueueSnapshot(
     Guid? SelectedPlaylistId,
     ImmutableList<VideoItem> Videos,

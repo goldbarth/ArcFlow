@@ -1,5 +1,9 @@
 namespace ArcFlow.Features.YouTubePlayer.State;
 
+/// <summary>
+/// Defines which actions create undo snapshots, which reset the undo stack (boundary actions),
+/// and which are transient playback events that should never be undone.
+/// </summary>
 public static class UndoPolicy
 {
     public static bool IsUndoable(YtAction action) => action is

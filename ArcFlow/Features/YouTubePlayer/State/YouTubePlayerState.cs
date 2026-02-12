@@ -2,6 +2,11 @@ using System.Collections.Immutable;
 
 namespace ArcFlow.Features.YouTubePlayer.State;
 
+/// <summary>
+/// Root state record for the YouTube Player feature. Composes all sub-states
+/// (playlists, queue, player, notifications) into a single immutable tree
+/// that the store exposes to the UI.
+/// </summary>
 public record YouTubePlayerState(
     PlaylistsState Playlists,
     QueueState Queue,
