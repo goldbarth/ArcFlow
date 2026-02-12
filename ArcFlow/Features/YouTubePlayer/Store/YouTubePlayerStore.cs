@@ -398,25 +398,22 @@ public sealed class YouTubePlayerStore
             _ => null
         };
 
-        var id = playerStateChanged.VideoId ?? expected;
+        var id = playerStateChanged.VideoId;
 
         if (state.Player is not PlayerState.Loading)
         {
-            if (id is null || expected is null || id != expected)
+            if (expected is null || id != expected)
                 return state;
         }
 
-        if (state.Player is PlayerState.Loading && id is null)
-            return state;
-
         var newPlayer = playerStateChanged.YtState switch
         {
-            3 => new PlayerState.Buffering(id!),// BUFFERING
-            1 => new PlayerState.Playing(id!),  // PLAYING
-            2 => new PlayerState.Paused(id!),   // PAUSED
-            5 => new PlayerState.Paused(id!),   // CUED
-            0 => new PlayerState.Paused(id!),   // ENDED
-            -1 => state.Player,                     // UNSTARTED - ignore
+            3 => new PlayerState.Buffering(id),// BUFFERING
+            1 => new PlayerState.Playing(id),  // PLAYING
+            2 => new PlayerState.Paused(id),   // PAUSED
+            5 => new PlayerState.Paused(id),   // CUED
+            0 => new PlayerState.Paused(id),   // ENDED
+            -1 => state.Player,                // UNSTARTED - ignore
             _ => state.Player
         };
 
@@ -960,6 +957,8 @@ public sealed class YouTubePlayerStore
     }
     
     #endregion
+
+    #region Error Handling & Notifications
     
     private YouTubePlayerState HandleOperationFailed(YouTubePlayerState state, YtAction.OperationFailed failed)
     {
@@ -1030,4 +1029,6 @@ public sealed class YouTubePlayerStore
             Notifications = state.Notifications.RemoveAll(n => n.CorrelationId == action.CorrelationId)
         };
     }
+    
+    #endregion
 }
