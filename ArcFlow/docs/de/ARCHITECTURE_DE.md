@@ -37,6 +37,8 @@ Typische Struktur:
 - `Features/YouTubePlayer/Components/`
     - `CreatePlaylistDrawer.razor` – MudDrawer (Temporary) für Playlist-Erstellung
     - `AddVideoDrawer.razor` – MudDrawer (Temporary) für Video-Hinzufügung
+    - `ImportExportToolbar.razor` – Export/Import-Buttons + Persist-Fehleranzeige
+    - `ImportDrawer.razor` – MudDrawer (End) mit Datei-Upload und JSON-Paste
 - `Features/YouTubePlayer/State/`
     - `YouTubePlayerState.cs` (Root-State)
     - Sub-States (z. B. `PlaylistsState`, `QueueState`, `PlayerState`)
@@ -51,11 +53,20 @@ Typische Struktur:
     - `Notification.cs` (Notification-Modell + Severity)
     - `OperationError.cs` (Kategorisierte Fehler + OperationContext)
     - `Result.cs` (Result-Pattern für erwartbare Fehler)
+    - `ImportExportState.cs` (Discriminated Union State Machine: Idle → Export/Import-Lifecycle)
+    - `PersistenceState.cs` (Dirty-Flag, letzter Persist-Versuch, Fehlermeldung)
+- `Features/YouTubePlayer/ImportExport/`
+    - `ExportDtoV1.cs` (DTOs: `ExportEnvelopeV1`, `ExportPlaylistDto`, `ExportVideoDto`)
+    - `ExportMapper.cs` (Domain-Modelle → DTOs, sortiert Videos nach Position)
+    - `ExportSerializer.cs` (JSON-Serialisierung mit camelCase und Null-Handling)
+    - `ImportPolicy.cs` (`ImportMode.ReplaceAll`, `IdStrategy.TrustIncoming`, `ImportOptions`)
+    - `ImportExportErrors.cs` (Discriminated Union: `ImportError`, `ExportError`)
 - `Features/YouTubePlayer/Models/`
     - Domänenmodelle (z. B. `Playlist`, `VideoItem`)
 - `wwwroot/js/`
     - `youtube-player-interop.js` (YouTube IFrame API)
     - `sortable-interop.js` (SortableJS)
+    - `export-interop.js` (Blob-Download für JSON-Export)
 
 ---
 
@@ -68,6 +79,8 @@ Enthält:
 - `Player`: Player-Zustand (empty / loading / buffering / playing / paused)
 - `Notifications`: `ImmutableList<Notification>` — aktive Benachrichtigungen für die UI
 - `LastError`: `OperationError?` — letzter aufgetretener Fehler (für Debugging)
+- `ImportExport`: Discriminated Union State Machine für den Import/Export-Lifecycle
+- `Persistence`: Dirty-Flag, letzter Persist-Versuch, Fehlermeldung
 
 Alle UI-Entscheidungen werden aus diesen Werten abgeleitet.
 
@@ -123,6 +136,26 @@ Von Effects ausgelöst:
 - `PlaylistLoaded(playlist)`
 - `PlaybackAdvanced(toItemId, reason)` — Effect-Routing
 - `PlaybackStopped(reason)` — Effect-Routing
+
+### Import/Export
+Von der UI ausgelöst:
+- `ExportRequested` — Export starten
+- `ImportRequested(jsonContent)` — Import mit JSON-Inhalt starten
+
+Von Effects ausgelöst (Lifecycle):
+- `ExportPrepared(envelope)` — DTO serialisiert, bereit für Download
+- `ExportSucceeded` — Download abgeschlossen
+- `ExportFailed(ExportError)` — Export fehlgeschlagen
+- `ImportParsed(envelope)` — JSON erfolgreich geparst
+- `ImportValidated(envelope)` — Validierung bestanden
+- `ImportApplied(playlists, selectedPlaylistId)` — Domain-Modelle erstellt, bereit zum Anwenden
+- `ImportSucceeded(playlistCount, videoCount)` — Import abgeschlossen
+- `ImportFailed(ImportError)` — Import fehlgeschlagen
+
+### Persistenz
+- `PersistRequested` — DB-Schreibvorgang anfordern
+- `PersistSucceeded` — DB-Schreibvorgang erfolgreich
+- `PersistFailed(message, inner)` — DB-Schreibvorgang fehlgeschlagen
 
 ### Error Handling & Notifications
 - `OperationFailed(OperationError)` — kategorisierter Fehler mit Kontext
@@ -187,6 +220,21 @@ Effects laufen nach dem Reduce-Schritt und dürfen:
 
 **Effect-Gating:** `UndoRequested` und `RedoRequested` überspringen Effects komplett — Undo/Redo ist rein reducer-basiert, ohne DB-Persistenz oder JS-Interop.
 
+**Export-Effect (`RunExportEffect`):**
+1. Guard: Prüft, ob Playlists geladen sind
+2. Map: `ExportMapper.ToEnvelope(playlists, selectedPlaylistId)` — Domain-Modelle → DTOs
+3. Serialize: `ExportSerializer.Serialize(envelope)` — JSON mit camelCase
+4. Dispatch: `ExportPrepared(envelope)` → State-Transition
+5. Download: JS-Interop `ExportInterop.downloadFile(fileName, json)` — Blob-basierter Browser-Download
+6. Dispatch: `ExportSucceeded` → Reset auf `Idle`
+
+**Persist-Effect (`RunPersistEffect`):**
+1. Guard: Prüft `IsDirty`-Flag und geladene Playlists
+2. Snapshot: Klont den gesamten Playlist-Baum aus dem State
+3. Replace: `ReplaceAllPlaylistsAsync(snapshot)` — atomarer DB-Austausch
+4. Dispatch: `PersistSucceeded` → `IsDirty = false`, Zeitstempel setzen
+5. Bei Fehler: `PersistFailed` → `IsDirty` bleibt `true` (Retry möglich)
+
 ### Lifecycle
 Der Store implementiert `IDisposable`:
 - `CancellationToken` stoppt die Background-Verarbeitung
@@ -227,6 +275,21 @@ Drawer sind reine Eingabekomponenten und nutzen MudBlazors `MudDrawer` mit `Vari
 - Separation of Concerns
 - Bessere Testbarkeit
 
+### ImportExportToolbar (`ImportExportToolbar.razor`)
+Dispatch-only Toolbar-Komponente:
+- Export-Button → `EventCallback` an Parent (dispatcht `ExportRequested`)
+- Import-Button → öffnet ImportDrawer
+- Persist-Fehleranzeige: Chip mit Retry-Button wenn `IsDirty && LastPersistError != null`
+- Buttons deaktiviert basierend auf State (`ExportInProgress`, `ImportParsing`)
+
+### ImportDrawer (`ImportDrawer.razor`)
+MudDrawer (Anchor.End, 400px) mit zwei Eingabemodi:
+- **Datei-Upload**: `InputFile` mit `.json`-Filter, max. 5 MB
+- **JSON-Paste**: `MudTextField` mit 8 Zeilen für manuelles Einfügen
+- Fortschrittsbalken während `ImportParsing`
+- Fehler-Alert bei `ImportFailed`, Erfolgs-Alert bei `ImportSucceeded` (zeigt Playlist/Video-Counts)
+- Cancel/Import-Buttons, Eingabe wird als `EventCallback<string>` an Parent gesendet
+
 ---
 
 ## JavaScript-Interop
@@ -238,6 +301,15 @@ Drawer sind reine Eingabekomponenten und nutzen MudBlazors `MudDrawer` mit `Vari
 - leitet State-Änderungen an .NET weiter
 
 JS ruft `[JSInvokable]`-Methoden auf, die in Actions übersetzt werden.
+
+### Export-Interop
+`export-interop.js`:
+- erstellt einen `Blob` aus dem JSON-Inhalt
+- erzeugt eine temporäre Download-URL via `URL.createObjectURL`
+- triggert den Browser-Download über ein unsichtbares `<a>`-Element
+- bereinigt URL und Element nach dem Download
+
+Aufgerufen aus dem Export-Effect: `ExportInterop.downloadFile(fileName, json)`
 
 ### SortableJS
 SortableJS verändert das DOM direkt.
@@ -295,6 +367,27 @@ Daher:
 1. JS feuert `OnVideoEnded` → UI dispatcht `VideoEnded`
 2. Effect dispatcht `NextRequested` (ersetzt altes index-basiertes `SelectNextVideoWithAutoplay`)
 3. Vollständige Shuffle/Repeat-Logik greift automatisch
+
+### Export
+1. User klickt Export-Button → UI dispatcht `ExportRequested`
+2. Reducer setzt `ImportExportState` auf `ExportInProgress`
+3. Effect: `ExportMapper.ToEnvelope()` → DTOs erzeugen
+4. Effect: `ExportSerializer.Serialize()` → JSON erzeugen
+5. Effect dispatcht `ExportPrepared(envelope)`
+6. Effect: JS-Interop `ExportInterop.downloadFile()` → Browser-Download
+7. Effect dispatcht `ExportSucceeded` → Reducer setzt State auf `Idle`
+
+### Import
+1. User wählt Datei oder fügt JSON ein → UI dispatcht `ImportRequested(jsonContent)`
+2. Reducer setzt `ImportExportState` auf `ImportParsing`
+3. Effect: `ExportSerializer.Deserialize()` → JSON parsen
+4. Effect dispatcht `ImportParsed(envelope)` → State: `ImportParsed`
+5. Effect: Schema-Version und Feld-Constraints validieren
+6. Effect dispatcht `ImportValidated(envelope)` → State: `ImportValidated`
+7. Effect: DTOs → Domain-Modelle konvertieren
+8. Effect dispatcht `ImportApplied(playlists, selectedPlaylistId)` → Reducer ersetzt gesamten Playlist-State
+9. Persist-Effect: Dirty-Flag erkannt → `ReplaceAllPlaylistsAsync()` → DB-Snapshot-Replace
+10. Effect dispatcht `ImportSucceeded(playlistCount, videoCount)` → Notification mit Counts
 
 ### Playlist erstellen
 1. Drawer sendet `EventCallback<CreatePlaylistRequest>`
@@ -406,7 +499,7 @@ Bestimmt, wie die History auf Actions reagiert:
 | Regel | Actions | Verhalten |
 |-------|---------|-----------|
 | **Undoable** | `SelectVideo`, `SortChanged` | Snapshot wird zu `Past` hinzugefügt, `Future` wird geleert |
-| **Boundary** | `PlaylistLoaded`, `SelectPlaylist` | `Past` und `Future` werden komplett geleert |
+| **Boundary** | `PlaylistLoaded`, `SelectPlaylist`, `ImportApplied` | `Past` und `Future` werden komplett geleert |
 | **Playback Transient** | `NextRequested`, `PrevRequested`, `ShuffleSet`, `RepeatSet`, `PlaybackAdvanced`, `PlaybackStopped` | History bleibt unverändert (kein Eintrag, kein Clearing) |
 | **Sonstige** | Alle anderen | History bleibt unverändert |
 
@@ -426,6 +519,8 @@ xUnit-basiertes Testprojekt mit Zugriff auf `internal`-Member via `InternalsVisi
 
 | Testdatei | Fokus |
 |-----------|-------|
+| `ExportPipelineTests` | Export-Mapper (Feld-Mapping, Sortierung), Serializer (JSON, camelCase, Roundtrip) |
+| `ImportExportReducerTests` | State-Machine-Transitionen (Export/Import-Lifecycle), Dirty-Flag, Undo-Integration (ImportApplied als Boundary) |
 | `UndoPolicyTests` | `IsUndoable()`, `IsBoundary()`, `IsPlaybackTransient()` für alle Action-Typen |
 | `QueueSnapshotTests` | Roundtrip, Positionswiederherstellung nach Mutation, Playback-Feld-Erhaltung |
 | `UndoRedoReducerTests` | Undo/Redo-Kernlogik, History-Limit, Boundary-Clearing, Multi-Step, NextRequested-Passthrough |

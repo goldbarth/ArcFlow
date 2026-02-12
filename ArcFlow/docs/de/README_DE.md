@@ -31,6 +31,7 @@ Das Haupt-Feature kombiniert bewusst mehrere Herausforderungen in einem Feature:
 - **Fehlerbehandlung & Notifications** — Result Pattern mit kategorisierten Fehlern, MudBlazor-Snackbar-Benachrichtigungen und strukturiertem Logging
 - **Undo/Redo** — Snapshot-basierte Zeitreise für Queue-Aktionen mit Past/Future-Stacks
 - **Shuffle & Repeat** — Permutationsbasierter Shuffle mit Playback-History-Stack, drei Repeat-Modi (Off/All/One), reine Strategie-Funktionen für die Navigation
+- **Import/Export & Persistenz** — JSON-Backup mit Schema-Versionierung, Browser-Download via JS-Interop, Datei-Import mit Validierung, Dirty-Tracking mit Persist-Effect
 
 > Weitere Tools folgen, wenn sie architektonisch etwas Neues einbringen.
 
@@ -80,6 +81,7 @@ Dieses Projekt zeigt, wie ich an Software-Entwicklung herangehe:
 - Playback-Persistenz — Player-State (Position, aktiver Track) über Sessions hinweg wiederherstellen
 
 **Abgeschlossen**
+- ~~Import/Export & Persist~~ — JSON-Export-Pipeline (DTO → Serializer → JS-Download), Import-UI (Datei-Picker + Paste), Persist-Effect (Dirty-Tracking → DB-Snapshot-Replace), discriminated union State Machine für Import/Export-Lifecycle
 - ~~Shuffle & Repeat~~ — Permutationsbasierter Shuffle (Fisher-Yates, deterministischer Seed), drei Repeat-Modi (Off/All/One), Playback-History-Stack für Previous im Shuffle-Modus, reine Strategie-Funktionen (`PlaybackNavigation`), `RepairPlaybackStructures` für Queue-Mutations-Resilienz, Undo-History-Passthrough via `IsPlaybackTransient`
 - ~~MudBlazor-Layout-Migration~~ — Vollständige Migration zu MudLayout (MudAppBar, MudDrawer Mini-Variant, MudNavMenu), Ersetzung der NotificationPanel-Komponente durch MudBlazor ISnackbar
 - ~~Undo/Redo~~ — Snapshot-basierte Zeitreise für Queue-Aktionen (SelectVideo, SortChanged) mit Past/Future-Stacks, UndoPolicy und Effect-Gating
@@ -122,16 +124,19 @@ ArcFlow/
 ├── Features/               # Feature-Module (je Feature in sich geschlossen)
 │   └── YouTubePlayer/
 │       ├── Components/     # Feature-spezifische UI-Komponenten
+│       ├── ImportExport/   # Export-DTOs, Mapper, Serializer, Import-Policy, Fehlertypen
 │       ├── Models/         # Domain Models
 │       ├── State/          # State Slices + Actions + Error/Result Types
 │       ├── Store/          # Store + Reducer + Effects + Logging
 │       └── YouTubePlayer.razor
 ├── Migrations/             # EF Core Migrationen
-├── wwwroot/                # Statische Assets (CSS, JS)
+├── wwwroot/                # Statische Assets (CSS, JS, export-interop.js)
 ├── Program.cs              # Einstiegspunkt
 └── appsettings.json        # Konfiguration
 
 ArcFlow.Tests/                    # xUnit-Testprojekt
+├── ExportPipelineTests.cs        # Export-Mapper, Serializer, Roundtrip-Tests
+├── ImportExportReducerTests.cs   # State-Machine-Transitionen, Dirty-Flag, Undo-Integration
 ├── UndoPolicyTests.cs            # Tests für Undo-Policy-Funktionen
 ├── QueueSnapshotTests.cs         # Tests für Snapshot-Roundtrip & Positionswiederherstellung
 ├── UndoRedoReducerTests.cs       # Reducer-Tests für Undo/Redo

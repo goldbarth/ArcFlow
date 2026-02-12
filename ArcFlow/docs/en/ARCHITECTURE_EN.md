@@ -37,6 +37,8 @@ Typical layout:
 - `Features/YouTubePlayer/Components/`
     - `CreatePlaylistDrawer.razor` – MudDrawer (Temporary) for playlist creation
     - `AddVideoDrawer.razor` – MudDrawer (Temporary) for adding videos
+    - `ImportExportToolbar.razor` – Export/Import buttons + persist error display
+    - `ImportDrawer.razor` – MudDrawer (End) with file upload and JSON paste
 - `Features/YouTubePlayer/State/`
     - `YouTubePlayerState.cs` (root state)
     - sub-states (e.g. `PlaylistsState`, `QueueState`, `PlayerState`)
@@ -51,11 +53,20 @@ Typical layout:
     - `Notification.cs` (notification model + severity)
     - `OperationError.cs` (categorized errors + OperationContext)
     - `Result.cs` (Result pattern for expected failures)
+    - `ImportExportState.cs` (discriminated union state machine: Idle → export/import lifecycle)
+    - `PersistenceState.cs` (dirty flag, last persist attempt, error message)
+- `Features/YouTubePlayer/ImportExport/`
+    - `ExportDtoV1.cs` (DTOs: `ExportEnvelopeV1`, `ExportPlaylistDto`, `ExportVideoDto`)
+    - `ExportMapper.cs` (domain models → DTOs, sorts videos by position)
+    - `ExportSerializer.cs` (JSON serialization with camelCase and null handling)
+    - `ImportPolicy.cs` (`ImportMode.ReplaceAll`, `IdStrategy.TrustIncoming`, `ImportOptions`)
+    - `ImportExportErrors.cs` (discriminated union: `ImportError`, `ExportError`)
 - `Features/YouTubePlayer/Models/`
     - domain models (e.g. `Playlist`, `VideoItem`)
 - `wwwroot/js/`
     - `youtube-player-interop.js` (YouTube IFrame API interop)
     - `sortable-interop.js` (SortableJS integration)
+    - `export-interop.js` (Blob download for JSON export)
 
 ---
 
@@ -68,6 +79,8 @@ Contains:
 - `Player`: player status (empty / loading / buffering / playing / paused)
 - `Notifications`: `ImmutableList<Notification>` — active notifications for the UI
 - `LastError`: `OperationError?` — last encountered error (for debugging)
+- `ImportExport`: discriminated union state machine for the import/export lifecycle
+- `Persistence`: dirty flag, last persist attempt, error message
 
 The UI derives all view decisions from these values.
 
@@ -123,6 +136,26 @@ Triggered by effects:
 - `PlaylistLoaded(playlist)`
 - `PlaybackAdvanced(toItemId, reason)` — effect routing
 - `PlaybackStopped(reason)` — effect routing
+
+### Import/Export
+Triggered by the UI:
+- `ExportRequested` — start export
+- `ImportRequested(jsonContent)` — start import with JSON content
+
+Triggered by effects (lifecycle):
+- `ExportPrepared(envelope)` — DTO serialized, ready for download
+- `ExportSucceeded` — download completed
+- `ExportFailed(ExportError)` — export failed at any stage
+- `ImportParsed(envelope)` — JSON parsed successfully
+- `ImportValidated(envelope)` — validation passed
+- `ImportApplied(playlists, selectedPlaylistId)` — domain models created, ready to apply
+- `ImportSucceeded(playlistCount, videoCount)` — import completed
+- `ImportFailed(ImportError)` — import failed at any stage
+
+### Persistence
+- `PersistRequested` — request DB write
+- `PersistSucceeded` — DB write successful
+- `PersistFailed(message, inner)` — DB write failed
 
 ### Error Handling & Notifications
 - `OperationFailed(OperationError)` — categorized error with context
@@ -188,6 +221,21 @@ They may:
 
 **Effect gating:** `UndoRequested` and `RedoRequested` skip effects entirely — undo/redo is purely reducer-based, with no DB persistence or JS interop.
 
+**Export effect (`RunExportEffect`):**
+1. Guard: check that playlists are loaded
+2. Map: `ExportMapper.ToEnvelope(playlists, selectedPlaylistId)` — domain models → DTOs
+3. Serialize: `ExportSerializer.Serialize(envelope)` — JSON with camelCase
+4. Dispatch: `ExportPrepared(envelope)` → state transition
+5. Download: JS interop `ExportInterop.downloadFile(fileName, json)` — Blob-based browser download
+6. Dispatch: `ExportSucceeded` → reset to `Idle`
+
+**Persist effect (`RunPersistEffect`):**
+1. Guard: check `IsDirty` flag and loaded playlists
+2. Snapshot: clone the entire playlist tree from state
+3. Replace: `ReplaceAllPlaylistsAsync(snapshot)` — atomic DB replacement
+4. Dispatch: `PersistSucceeded` → `IsDirty = false`, set timestamp
+5. On failure: `PersistFailed` → `IsDirty` stays `true` (retry possible)
+
 ### Lifecycle
 The store implements `IDisposable`:
 - `CancellationToken` stops background processing
@@ -228,6 +276,21 @@ Drawers are input components using MudBlazor's `MudDrawer` with `Variant.Tempora
 - Separation of concerns
 - Better testability
 
+### ImportExportToolbar (`ImportExportToolbar.razor`)
+Dispatch-only toolbar component:
+- Export button → `EventCallback` to parent (dispatches `ExportRequested`)
+- Import button → opens ImportDrawer
+- Persist error display: chip with Retry button when `IsDirty && LastPersistError != null`
+- Buttons disabled based on state (`ExportInProgress`, `ImportParsing`)
+
+### ImportDrawer (`ImportDrawer.razor`)
+MudDrawer (Anchor.End, 400px) with two input modes:
+- **File upload**: `InputFile` with `.json` filter, max 5 MB
+- **JSON paste**: `MudTextField` with 8 lines for manual input
+- Progress bar during `ImportParsing`
+- Error alert on `ImportFailed`, success alert on `ImportSucceeded` (shows playlist/video counts)
+- Cancel/Import buttons, input sent as `EventCallback<string>` to parent
+
 ---
 
 ## JS Interop
@@ -239,6 +302,15 @@ Drawers are input components using MudBlazor's `MudDrawer` with `Variant.Tempora
 - forwards state changes to .NET
 
 JS calls into .NET via `[JSInvokable]` methods, which are translated into actions.
+
+### Export Interop
+`export-interop.js`:
+- creates a `Blob` from the JSON content
+- creates a temporary download URL via `URL.createObjectURL`
+- triggers the browser download through an invisible `<a>` element
+- cleans up URL and element after download
+
+Called from the export effect: `ExportInterop.downloadFile(fileName, json)`
 
 ### SortableJS
 SortableJS mutates the DOM.
@@ -296,6 +368,27 @@ Therefore:
 1. JS fires `OnVideoEnded` → UI dispatches `VideoEnded`
 2. Effect dispatches `NextRequested` (replacing old index-based `SelectNextVideoWithAutoplay`)
 3. Full shuffle/repeat logic applies automatically
+
+### Export
+1. User clicks Export button → UI dispatches `ExportRequested`
+2. Reducer sets `ImportExportState` to `ExportInProgress`
+3. Effect: `ExportMapper.ToEnvelope()` → create DTOs
+4. Effect: `ExportSerializer.Serialize()` → create JSON
+5. Effect dispatches `ExportPrepared(envelope)`
+6. Effect: JS interop `ExportInterop.downloadFile()` → browser download
+7. Effect dispatches `ExportSucceeded` → reducer resets state to `Idle`
+
+### Import
+1. User selects file or pastes JSON → UI dispatches `ImportRequested(jsonContent)`
+2. Reducer sets `ImportExportState` to `ImportParsing`
+3. Effect: `ExportSerializer.Deserialize()` → parse JSON
+4. Effect dispatches `ImportParsed(envelope)` → state: `ImportParsed`
+5. Effect: validate schema version and field constraints
+6. Effect dispatches `ImportValidated(envelope)` → state: `ImportValidated`
+7. Effect: convert DTOs → domain models
+8. Effect dispatches `ImportApplied(playlists, selectedPlaylistId)` → reducer replaces entire playlist state
+9. Persist effect: dirty flag detected → `ReplaceAllPlaylistsAsync()` → DB snapshot replace
+10. Effect dispatches `ImportSucceeded(playlistCount, videoCount)` → notification with counts
 
 ### Create Playlist
 1. Drawer emits `EventCallback<CreatePlaylistRequest>`
@@ -407,7 +500,7 @@ Determines how history reacts to actions:
 | Rule | Actions | Behavior |
 |------|---------|----------|
 | **Undoable** | `SelectVideo`, `SortChanged` | Snapshot pushed to `Past`, `Future` cleared |
-| **Boundary** | `PlaylistLoaded`, `SelectPlaylist` | `Past` and `Future` cleared entirely |
+| **Boundary** | `PlaylistLoaded`, `SelectPlaylist`, `ImportApplied` | `Past` and `Future` cleared entirely |
 | **Playback Transient** | `NextRequested`, `PrevRequested`, `ShuffleSet`, `RepeatSet`, `PlaybackAdvanced`, `PlaybackStopped` | History preserved as-is (no entry, no clearing) |
 | **Other** | All others | History unchanged |
 
@@ -427,6 +520,8 @@ xUnit-based test project with access to `internal` members via `InternalsVisible
 
 | Test File | Focus |
 |-----------|-------|
+| `ExportPipelineTests` | Export mapper (field mapping, sorting), serializer (JSON, camelCase, round-trip) |
+| `ImportExportReducerTests` | State machine transitions (export/import lifecycle), dirty flag, undo integration (ImportApplied as boundary) |
 | `UndoPolicyTests` | `IsUndoable()`, `IsBoundary()`, `IsPlaybackTransient()` for all action types |
 | `QueueSnapshotTests` | Round-trip, position restoration after mutation, playback field preservation |
 | `UndoRedoReducerTests` | Core undo/redo logic, history limit, boundary clearing, multi-step, NextRequested passthrough |

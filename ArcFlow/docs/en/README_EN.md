@@ -31,6 +31,7 @@ The main feature deliberately combines several challenges in one:
 - **Error Handling & Notifications** — Result pattern with categorized errors, MudBlazor Snackbar notifications, and structured logging
 - **Undo/Redo** — Snapshot-based time travel for queue actions with Past/Future stacks
 - **Shuffle & Repeat** — Permutation-based shuffle with playback history stack, three repeat modes (Off/All/One), pure strategy functions for navigation
+- **Import/Export & Persistence** — JSON backup with schema versioning, browser download via JS interop, file import with validation, dirty tracking with persist effect
 
 > More tools will follow when they bring something architecturally new to the table.
 
@@ -80,6 +81,7 @@ This project shows how I approach software development:
 - Playback persistence — restore player state (position, active track) across sessions
 
 **Completed**
+- ~~Import/Export & Persist~~ — JSON export pipeline (DTO → Serializer → JS download), import UI (file picker + paste), persist effect (dirty tracking → DB snapshot replace), discriminated union state machine for import/export lifecycle
 - ~~Shuffle & Repeat~~ — Permutation-based shuffle (Fisher-Yates, deterministic seed), three repeat modes (Off/All/One), playback history stack for Previous in shuffle mode, pure strategy functions (`PlaybackNavigation`), `RepairPlaybackStructures` for queue mutation resilience, undo-history passthrough via `IsPlaybackTransient`
 - ~~MudBlazor layout migration~~ — Full migration to MudLayout (MudAppBar, MudDrawer Mini variant, MudNavMenu), replaced NotificationPanel with MudBlazor ISnackbar
 - ~~Undo/Redo~~ — Snapshot-based time travel for queue actions (SelectVideo, SortChanged) with Past/Future stacks, UndoPolicy, and effect gating
@@ -122,16 +124,19 @@ ArcFlow/
 ├── Features/               # Feature modules (self-contained per feature)
 │   └── YouTubePlayer/
 │       ├── Components/     # Feature-specific UI components
+│       ├── ImportExport/   # Export DTOs, mapper, serializer, import policy, error types
 │       ├── Models/         # Domain models
 │       ├── State/          # State slices + actions + error/result types
 │       ├── Store/          # Store + reducer + effects + logging
 │       └── YouTubePlayer.razor
 ├── Migrations/             # EF Core migrations
-├── wwwroot/                # Static assets (CSS, JS)
+├── wwwroot/                # Static assets (CSS, JS, export-interop.js)
 ├── Program.cs              # Entry point
 └── appsettings.json        # Configuration
 
 ArcFlow.Tests/                    # xUnit test project
+├── ExportPipelineTests.cs        # Export mapper, serializer, round-trip tests
+├── ImportExportReducerTests.cs   # State machine transitions, dirty flag, undo integration
 ├── UndoPolicyTests.cs            # Undo policy function tests
 ├── QueueSnapshotTests.cs         # Snapshot round-trip & position restoration tests
 ├── UndoRedoReducerTests.cs       # Core reducer undo/redo tests

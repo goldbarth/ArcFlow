@@ -215,3 +215,29 @@ Key design choices:
 - Reducer handlers are thin: delegate to pure functions, then apply the decision
 - New playback modes (e.g. shuffle algorithms, weighted repeat) can be added by extending `PlaybackNavigation` without touching the reducer
 - `VideoEnded` effect now dispatches `NextRequested` instead of direct index calculation, unifying all auto-advance logic through the same path
+
+---
+
+## ADR-014: Import/Export with Discriminated Union State Machine and Multi-Stage Effect Pipeline
+
+**Decision**
+Import and export are implemented as multi-stage effect pipelines whose lifecycle is modeled via a discriminated union state machine (`ImportExportState`). Export uses a DTO pipeline (Domain → Mapper → Serializer → JS download). Import goes through Parse → Validate → Apply → Persist. Persistence uses a dirty-tracking mechanism with atomic DB snapshot replacement.
+
+**Reasoning**
+Import/export are inherently multi-stage processes with distinct failure points (parse errors, schema mismatch, validation errors, DB errors, JS interop errors). Rather than a monolithic try-catch block, each step is modeled as a separate action that triggers a state transition in the discriminated union. This makes progress visible to the UI (progress bar, error alerts), enables granular error handling, and keeps the reducer testable.
+
+Key design choices:
+- **Discriminated union state machine**: `ImportExportState` with 10 states (Idle, ExportInProgress, ExportSucceeded, ExportFailed, ImportParsing, ImportParsed, ImportValidated, ImportApplied, ImportSucceeded, ImportFailed). Each state is its own record type — exhaustive pattern matching enforces complete handling in UI and reducer.
+- **DTO pipeline for export**: `ExportMapper` converts domain models to versioned DTOs (`ExportEnvelopeV1` with `SchemaVersion: 1`). `ExportSerializer` serializes with camelCase. JS interop (`export-interop.js`) triggers Blob-based browser download. Each step is independently testable.
+- **Schema versioning**: `SchemaVersion` field in the export envelope enables future migration strategies without breaking changes to existing backups.
+- **ImportPolicy (ReplaceAll + TrustIncoming)**: v1 supports only full replacement of all playlists (atomic transaction) and uses GUIDs from the import file as-is. This preserves referential identity across export → edit → re-import cycles.
+- **Dirty tracking with persist effect**: `PersistenceState.IsDirty` is set on `ImportApplied`. The persist effect clones the entire playlist tree and atomically replaces the database. On failure, `IsDirty` stays `true` for retry. UI shows an error chip with a Retry button.
+- **ImportApplied as undo boundary**: Import replaces the entire playlist state — an undo after that would be semantically meaningless. `UndoPolicy.IsBoundary` clears Past/Future entirely.
+- **Discriminated union error types**: `ImportError` (ParseError, UnsupportedSchema, ValidationError, IdCollision, PersistenceFailed) and `ExportError` (SerializationFailed, InteropFailed) as dedicated record hierarchies — type-safe rather than generic strings.
+
+**Consequences**
+- State machine transitions are fully verifiable via reducer tests (no async I/O needed)
+- UI reacts to every intermediate step (progress, error, success) via store state binding
+- Export pipeline is extensible (e.g. new schema versions, additional export formats)
+- Import validation is decoupled from persistence — errors are caught before DB writes
+- Persist effect is reusable for other features that need dirty tracking
